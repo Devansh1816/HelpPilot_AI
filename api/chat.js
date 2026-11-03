@@ -44,61 +44,33 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. SMART AUTO-DISCOVERY: Strictly filter ONLY text chat models (exclude audio/whisper/vision)
-    let targetModel = 'llama-3.3-70b-versatile'; // Standard fallback
+    // 2. Fetch Active Models dynamically from Groq
+    let availableChatModels = [];
     try {
       const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
         headers: { 'Authorization': `Bearer ${cleanKey}` }
       });
       const modelsData = await modelsRes.json();
-      
       if (modelsData.data && Array.isArray(modelsData.data)) {
-        // Filter out whisper, audio, vision, guard, embedding models
-        const textModels = modelsData.data.filter(m => {
-          const id = m.id.toLowerCase();
-          return (id.includes('llama') || id.includes('mixtral') || id.includes('gemma')) &&
-                 !id.includes('whisper') && 
-                 !id.includes('guard') && 
-                 !id.includes('embed');
-        });
-
-        if (textModels.length > 0) {
-          // Prefer Llama 3.3 or Llama 3.1 text models
-          const preferredModel = textModels.find(m => m.id.includes('llama-3.3') || m.id.includes('llama-3.1'));
-          targetModel = preferredModel ? preferredModel.id : textModels[0].id;
-        }
+        availableChatModels = modelsData.data
+          .map(m => m.id)
+          .filter(id => !id.includes('whisper') && !id.includes('guard') && !id.includes('embed'));
       }
     } catch (e) {
-      console.error("Auto-discovery text filter failed:", e);
+      console.error("Model discovery error:", e);
     }
 
-    // 3. Ultra-Fast Chat Completion
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${cleanKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: targetModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.2
-      })
-    });
+    // Fallback list of guaranteed text models if discovery list is empty
+    const candidateModels = Array.from(new Set([
+      ...availableChatModels,
+      'llama-3.1-8b-instant',
+      'llama-3.3-70b-versatile',
+      'mixtral-8x7b-32768',
+      'gemma2-9b-it'
+    ]));
 
-    const data = await groqRes.json();
+    let replyText = null;
+    let lastError = "";
 
-    if (data.error) {
-      return res.status(200).json({ reply: `Groq Error: ${data.error.message}` });
-    }
-
-    const replyText = data.choices?.[0]?.message?.content;
-    return res.status(200).json({ reply: replyText || 'No response generated.' });
-
-  } catch (err) {
-    return res.status(200).json({ reply: 'Server Exception: ' + err.message });
-  }
-}
+    // 3. Try execution until a valid active text model responds
+    for (const modelId of candidateModels) {
