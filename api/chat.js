@@ -44,26 +44,35 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. AUTO-DISCOVERY: Fetch live active models for this specific Groq key
-    let targetModel = null;
+    // 2. SMART AUTO-DISCOVERY: Strictly filter ONLY text chat models (exclude audio/whisper/vision)
+    let targetModel = 'llama-3.3-70b-versatile'; // Standard fallback
     try {
       const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
         headers: { 'Authorization': `Bearer ${cleanKey}` }
       });
       const modelsData = await modelsRes.json();
-      if (modelsData.data && Array.isArray(modelsData.data) && modelsData.data.length > 0) {
-        // Pick first model accessible to this API key
-        targetModel = modelsData.data[0].id;
+      
+      if (modelsData.data && Array.isArray(modelsData.data)) {
+        // Filter out whisper, audio, vision, guard, embedding models
+        const textModels = modelsData.data.filter(m => {
+          const id = m.id.toLowerCase();
+          return (id.includes('llama') || id.includes('mixtral') || id.includes('gemma')) &&
+                 !id.includes('whisper') && 
+                 !id.includes('guard') && 
+                 !id.includes('embed');
+        });
+
+        if (textModels.length > 0) {
+          // Prefer Llama 3.3 or Llama 3.1 text models
+          const preferredModel = textModels.find(m => m.id.includes('llama-3.3') || m.id.includes('llama-3.1'));
+          targetModel = preferredModel ? preferredModel.id : textModels[0].id;
+        }
       }
     } catch (e) {
-      console.error("Auto-discovery failed:", e);
+      console.error("Auto-discovery text filter failed:", e);
     }
 
-    if (!targetModel) {
-      return res.status(200).json({ reply: 'Unable to fetch accessible models from Groq. Please check GROQ_API_KEY.' });
-    }
-
-    // 3. Ultra-Fast Chat Completion using Auto-Discovered Model
+    // 3. Ultra-Fast Chat Completion
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
