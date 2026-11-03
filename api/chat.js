@@ -15,10 +15,10 @@ export default async function handler(req, res) {
     if (!message) return res.status(400).json({ error: 'Message is required' });
 
     if (!geminiApiKey) {
-      return res.status(200).json({ reply: '[V2 DEBUG] GEMINI_API_KEY is missing in Vercel Environment Variables.' });
+      return res.status(200).json({ reply: 'GEMINI_API_KEY is missing in Vercel Environment Variables.' });
     }
 
-    // 1. Fetch Knowledge Base from Supabase
+    // 1. Supabase Knowledge Base Fetch
     let knowledgeContext = "No specific knowledge base uploaded yet.";
     if (supabaseUrl && supabaseKey) {
       try {
@@ -43,11 +43,11 @@ export default async function handler(req, res) {
       }
     }
 
-    const systemPrompt = `You are HelpPilot AI. Use ONLY this context to answer accurately:\n${knowledgeContext}\n\nVisitor Question: "${message}"`;
+    const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer the user's question concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Call Gemini 2.5 Flash API
+    // 2. Active Gemini REST Model Call (gemini-1.5-flash)
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey.trim()}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,9 +59,8 @@ export default async function handler(req, res) {
 
     const aiData = await geminiRes.json();
 
-    // Show Exact Google API Error Message if any
     if (aiData.error) {
-      return res.status(200).json({ reply: `[V2 DEBUG] Google API Error [${aiData.error.code}]: ${aiData.error.message}` });
+      return res.status(200).json({ reply: `Google API Error [${aiData.error.code}]: ${aiData.error.message}` });
     }
 
     const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -69,9 +68,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ reply: replyText });
     }
 
-    return res.status(200).json({ reply: '[V2 DEBUG] API returned empty response: ' + JSON.stringify(aiData) });
+    return res.status(200).json({ reply: 'Empty AI response received.' });
 
   } catch (err) {
-    return res.status(500).json({ error: '[V2 DEBUG] Server Error: ' + err.message });
+    return res.status(500).json({ error: 'Server Error: ' + err.message });
   }
 }
