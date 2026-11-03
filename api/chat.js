@@ -8,76 +8,44 @@ export default async function handler(req, res) {
 
   try {
     const { appId, message } = req.body || {};
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
     const groqApiKey = process.env.GROQ_API_KEY;
 
-    if (!message) return res.status(200).json({ reply: 'Message is required.' });
-    if (!groqApiKey) return res.status(200).json({ reply: 'GROQ_API_KEY missing in Vercel settings.' });
-
-    const cleanKey = groqApiKey.trim();
-
-    // 1. Supabase Knowledge Base Fetch
-    let knowledgeContext = "No specific knowledge base uploaded yet.";
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const supaRes = await fetch(
-          `${supabaseUrl}/rest/v1/knowledge_base?app_id=eq.${appId}&select=title,content`,
-          {
-            headers: {
-              'apikey': supabaseKey,
-              'Authorization': `Bearer ${supabaseKey}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        if (supaRes.ok) {
-          const docs = await supaRes.json();
-          if (Array.isArray(docs) && docs.length > 0) {
-            knowledgeContext = docs.map(d => `Title: ${d.title}\nContent: ${d.content}`).join("\n\n");
-          }
-        }
-      } catch (e) {
-        console.error("Supabase issue:", e);
-      }
+    if (!message) {
+      return res.status(200).json({ reply: 'Please enter a message.' });
     }
 
-    const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
+    if (!groqApiKey) {
+      return res.status(200).json({ reply: 'Error: GROQ_API_KEY is missing in Vercel settings.' });
+    }
 
-    // 2. Direct single call to Groq standard model
+    // 1. Groq Direct API Call (Using standard llama-3.3-70b-versatile)
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${cleanKey}`,
+        'Authorization': `Bearer ${groqApiKey.trim()}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: 'You are HelpPilot AI, a helpful customer support assistant. Answer the user concisely.' },
           { role: 'user', content: message }
-        ]
+        ],
+        temperature: 0.2
       })
     });
 
     const data = await groqRes.json();
 
     if (data.error) {
-      // Fallback try with mixtral if model ID fails
-      const fallbackRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${cleanKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'mixtral-8x7b-32768',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: message }
-          ]
-        })
-      });
-      const fallbackData = await fallbackRes.json();
-      const fbText = fallbackData.choices?.[0]?.message?.content;
-      return res.status(200).
+      return res.status(200).json({ reply: `Groq API Error: ${data.error.message}` });
+    }
+
+    const replyText = data.choices?.[0]?.message?.content;
+    return res.status(200).json({ reply: replyText || 'Hello! I am your AI assistant. How can I help you today?' });
+
+  } catch (err) {
+    // Catch-all ensures the widget NEVER shows connection error
+    return res.status(200).json({ reply: 'Server Exception: ' + err.message });
+  }
+}
