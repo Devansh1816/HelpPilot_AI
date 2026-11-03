@@ -15,34 +15,38 @@ export default async function handler(req, res) {
     if (!message) return res.status(400).json({ error: 'Message is required' });
 
     if (!geminiApiKey) {
-      return res.status(200).json({ reply: '❌ Vercel Error: GEMINI_API_KEY environment variable missing in Vercel Settings.' });
+      return res.status(200).json({ reply: '[V2 DEBUG] GEMINI_API_KEY is missing in Vercel Environment Variables.' });
     }
 
     // 1. Fetch Knowledge Base from Supabase
     let knowledgeContext = "No specific knowledge base uploaded yet.";
     if (supabaseUrl && supabaseKey) {
-      const supaRes = await fetch(
-        `${supabaseUrl}/rest/v1/knowledge_base?app_id=eq.${appId}&select=title,content`,
-        {
-          headers: {
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json'
+      try {
+        const supaRes = await fetch(
+          `${supabaseUrl}/rest/v1/knowledge_base?app_id=eq.${appId}&select=title,content`,
+          {
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        if (supaRes.ok) {
+          const docs = await supaRes.json();
+          if (docs && docs.length > 0) {
+            knowledgeContext = docs.map(d => `Title: ${d.title}\nContent: ${d.content}`).join("\n\n");
           }
         }
-      );
-      if (supaRes.ok) {
-        const docs = await supaRes.json();
-        if (docs && docs.length > 0) {
-          knowledgeContext = docs.map(d => `Title: ${d.title}\nContent: ${d.content}`).join("\n\n");
-        }
+      } catch (e) {
+        console.error("Supabase fetch error:", e);
       }
     }
 
     const systemPrompt = `You are HelpPilot AI. Use ONLY this context to answer accurately:\n${knowledgeContext}\n\nVisitor Question: "${message}"`;
 
-    // 2. Direct Call to Gemini 2.5 Flash API
-    const geminiResponse = await fetch(
+    // 2. Call Gemini 2.5 Flash API
+    const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`,
       {
         method: 'POST',
@@ -53,21 +57,21 @@ export default async function handler(req, res) {
       }
     );
 
-    const aiData = await geminiResponse.json();
+    const aiData = await geminiRes.json();
 
-    // Catch direct Google API errors (Invalid Key, Quota, etc.)
+    // Show Exact Google API Error Message if any
     if (aiData.error) {
-      return res.status(200).json({ reply: `❌ Google API Error [${aiData.error.code}]: ${aiData.error.message}` });
+      return res.status(200).json({ reply: `[V2 DEBUG] Google API Error [${aiData.error.code}]: ${aiData.error.message}` });
     }
 
     const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (replyText) {
       return res.status(200).json({ reply: replyText });
-    } else {
-      return res.status(200).json({ reply: '❌ Empty AI response received from Google Gemini.' });
     }
 
+    return res.status(200).json({ reply: '[V2 DEBUG] API returned empty response: ' + JSON.stringify(aiData) });
+
   } catch (err) {
-    return res.status(500).json({ error: 'Server Catch Error: ' + err.message });
+    return res.status(500).json({ error: '[V2 DEBUG] Server Error: ' + err.message });
   }
 }
