@@ -13,10 +13,7 @@ export default async function handler(req, res) {
     const groqApiKey = process.env.GROQ_API_KEY;
 
     if (!message) return res.status(400).json({ error: 'Message is required' });
-
-    if (!groqApiKey) {
-      return res.status(200).json({ reply: 'GROQ_API_KEY missing in Vercel Environment Variables.' });
-    }
+    if (!groqApiKey) return res.status(200).json({ reply: 'GROQ_API_KEY missing in Vercel.' });
 
     const cleanKey = groqApiKey.trim();
 
@@ -47,56 +44,44 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Groq Active Models Fallback Loop
-    const candidateModels = [
-      'llama-3.1-8b-instant',
-      'llama3-70b-8192',
-      'llama3-8b-8192',
-      'mixtral-8x7b-32768',
-      'gemma2-9b-it'
-    ];
+    // 2. DYNAMIC AUTO-DISCOVERY: Fetch active models live from Groq
+    const modelsListRes = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { 'Authorization': `Bearer ${cleanKey}` }
+    });
+    const modelsData = await modelsListRes.json();
 
-    let replyText = null;
-    let lastError = "";
-
-    for (const model of candidateModels) {
-      try {
-        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${cleanKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: message }
-            ],
-            temperature: 0.2
-          })
-        });
-
-        const data = await groqRes.json();
-
-        if (data.choices?.[0]?.message?.content) {
-          replyText = data.choices[0].message.content;
-          break; // Connected successfully!
-        } else if (data.error) {
-          lastError = data.error.message;
-        }
-      } catch (e) {
-        lastError = e.message;
-      }
+    if (modelsData.error) {
+      return res.status(200).json({ reply: `Groq Auth Error: ${modelsData.error.message}` });
     }
 
-    if (replyText) {
-      return res.status(200).json({ reply: replyText });
+    // Pick active live model ID (e.g. llama-3.1-8b-instant or similar active model)
+    const activeModels = modelsData.data || [];
+    const selectedModel = activeModels.find(m => m.id.includes('llama-3.1') || m.id.includes('llama3'))?.id 
+                          || activeModels[0]?.id 
+                          || 'llama-3.1-8b-instant';
+
+    // 3. Ultra-Fast Chat Completion
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cleanKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: selectedModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        temperature: 0.2
+      })
+    });
+
+    const data = await groqRes.json();
+
+    if (data.error) {
+      return res.status(200).json({ reply: `Groq Error: ${data.error.message}` });
     }
 
-    return res.status(200).json({ reply: `Groq Error: ${lastError || 'Unable to connect to Groq API.'}` });
-
-  } catch (err) {
-    return res.status(500).json({ error: 'Server Error: ' + err.message });
-  }
-}
+    const replyText = data.choices?.[0]?.message?.content;
+    return res.status(200).json({ reply: replyText || 'No response
