@@ -1,16 +1,10 @@
 export default async function handler(req, res) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
     const { appId, message } = req.body;
@@ -18,11 +12,13 @@ export default async function handler(req, res) {
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+    if (!message) return res.status(400).json({ error: 'Message is required' });
+
+    if (!geminiApiKey) {
+      return res.status(200).json({ reply: 'Vercel Env Error: GEMINI_API_KEY variable is missing.' });
     }
 
-    // 1. Direct REST Fetch from Supabase (Zero External Library Needed)
+    // 1. Supabase Knowledge Fetch
     let knowledgeContext = "No specific knowledge base uploaded yet.";
     if (supabaseUrl && supabaseKey) {
       const supaRes = await fetch(
@@ -43,22 +39,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Prompt Construction for Gemini AI
-    const systemPrompt = `
-You are HelpPilot AI, an intelligent customer support assistant for a business website.
-Use ONLY the following knowledge base context to answer the visitor's question accurately.
-If the answer is not in the context, politely state that you don't have that information right now and offer to connect them with a human agent. Keep responses concise, professional, and friendly.
+    const systemPrompt = `You are HelpPilot AI. Use ONLY this context to answer:\n${knowledgeContext}\n\nVisitor: "${message}"`;
 
-=== KNOWLEDGE BASE CONTEXT ===
-${knowledgeContext}
-=============================
-
-Visitor Question: "${message}"
-`;
-
-    // 3. Direct Gemini 2.5 Flash API Call
+    // 2. Direct Gemini 2.5 Flash Call
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -69,12 +54,16 @@ Visitor Question: "${message}"
     );
 
     const aiData = await geminiResponse.json();
-    const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble connecting to Gemini API. Please check your GEMINI_API_KEY in Vercel.";
 
+    // Direct error output from Google API
+    if (aiData.error) {
+      return res.status(200).json({ reply: `Gemini API Error: ${aiData.error.message}` });
+    }
+
+    const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "No output text from Gemini.";
     return res.status(200).json({ reply: replyText });
 
   } catch (err) {
-    console.error('API Error:', err);
-    return res.status(500).json({ error: 'Internal Server Error: ' + err.message });
+    return res.status(500).json({ error: 'Server Catch Error: ' + err.message });
   }
 }
