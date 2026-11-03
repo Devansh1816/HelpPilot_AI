@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const groqApiKey = process.env.GROQ_API_KEY;
 
     if (!message) return res.status(200).json({ reply: 'Message is required.' });
-    if (!groqApiKey) return res.status(200).json({ reply: 'GROQ_API_KEY is missing in Vercel Environment Variables.' });
+    if (!groqApiKey) return res.status(200).json({ reply: 'GROQ_API_KEY missing in Vercel settings.' });
 
     const cleanKey = groqApiKey.trim();
 
@@ -38,39 +38,39 @@ export default async function handler(req, res) {
           }
         }
       } catch (e) {
-        console.error("Supabase fetch error:", e);
+        console.error("Supabase fetch issue:", e);
       }
     }
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Fetch Active Models dynamically from Groq
-    let availableChatModels = [];
-    try {
-      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
-        headers: { 'Authorization': `Bearer ${cleanKey}` }
-      });
-      const modelsData = await modelsRes.json();
-      if (modelsData.data && Array.isArray(modelsData.data)) {
-        availableChatModels = modelsData.data
-          .map(m => m.id)
-          .filter(id => !id.includes('whisper') && !id.includes('guard') && !id.includes('embed'));
-      }
-    } catch (e) {
-      console.error("Model discovery error:", e);
+    // 2. Direct Call to Groq Standard Active Model (llama-3.1-8b-instant)
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cleanKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        temperature: 0.2
+      })
+    });
+
+    const data = await groqRes.json();
+
+    if (data.error) {
+      return res.status(200).json({ reply: `Groq Error: ${data.error.message}` });
     }
 
-    // Fallback list of guaranteed text models if discovery list is empty
-    const candidateModels = Array.from(new Set([
-      ...availableChatModels,
-      'llama-3.1-8b-instant',
-      'llama-3.3-70b-versatile',
-      'mixtral-8x7b-32768',
-      'gemma2-9b-it'
-    ]));
+    const replyText = data.choices?.[0]?.message?.content;
+    return res.status(200).json({ reply: replyText || 'No response generated.' });
 
-    let replyText = null;
-    let lastError = "";
-
-    // 3. Try execution until a valid active text model responds
-    for (const modelId of candidateModels) {
+  } catch (err) {
+    return res.status(200).json({ reply: 'Server Error: ' + err.message });
+  }
+}
