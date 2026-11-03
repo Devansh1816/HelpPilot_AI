@@ -10,12 +10,13 @@ export default async function handler(req, res) {
     const { appId, message } = req.body;
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
-    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const groqApiKey = process.env.GROQ_API_KEY;
 
     if (!message) return res.status(400).json({ error: 'Message is required' });
-    if (!geminiApiKey) return res.status(200).json({ reply: 'GEMINI_API_KEY missing in Vercel.' });
 
-    const cleanKey = geminiApiKey.trim();
+    if (!groqApiKey) {
+      return res.status(200).json({ reply: 'GROQ_API_KEY missing in Vercel Environment Variables.' });
+    }
 
     // 1. Supabase Knowledge Base Fetch
     let knowledgeContext = "No specific knowledge base uploaded yet.";
@@ -44,35 +45,31 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Fetch active supported models directly from Google API
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
-    const listData = await listRes.json();
+    // 2. Groq API Call (Llama-3.3-70b-versatile)
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqApiKey.trim()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        temperature: 0.2
+      })
+    });
 
-    if (listData.error) {
-      return res.status(200).json({ reply: `Google Key Error: ${listData.error.message}` });
+    const data = await groqRes.json();
+
+    if (data.error) {
+      return res.status(200).json({ reply: `Groq Error: ${data.error.message}` });
     }
 
-    // Auto-select active model that supports generateContent
-    const validModel = listData.models?.find(m => m.supportedGenerationMethods?.includes('generateContent'));
-
-    if (!validModel) {
-      return res.status(200).json({ reply: 'No active text generation models found for this API Key.' });
-    }
-
-    // 3. Generate response with auto-discovered active model
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${validModel.name}:generateContent?key=${cleanKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] })
-      }
-    );
-
-    const aiData = await geminiRes.json();
-    const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    return res.status(200).json({ reply: replyText || aiData?.error?.message || 'Empty response.' });
+    const replyText = data.choices?.[0]?.message?.content;
+    return res.status(200).json({ reply: replyText || 'No response generated.' });
 
   } catch (err) {
     return res.status(500).json({ error: 'Server Error: ' + err.message });
