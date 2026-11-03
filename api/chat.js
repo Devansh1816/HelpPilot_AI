@@ -7,13 +7,16 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { appId, message } = req.body;
+    const { appId, message } = req.body || {};
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
     const groqApiKey = process.env.GROQ_API_KEY;
 
-    if (!message) return res.status(400).json({ error: 'Message is required' });
-    if (!groqApiKey) return res.status(200).json({ reply: 'GROQ_API_KEY missing in Vercel.' });
+    if (!message) return res.status(200).json({ reply: 'Message is required.' });
+
+    if (!groqApiKey) {
+      return res.status(200).json({ reply: 'GROQ_API_KEY is missing in Vercel Environment Variables.' });
+    }
 
     const cleanKey = groqApiKey.trim();
 
@@ -33,7 +36,7 @@ export default async function handler(req, res) {
         );
         if (supaRes.ok) {
           const docs = await supaRes.json();
-          if (docs && docs.length > 0) {
+          if (Array.isArray(docs) && docs.length > 0) {
             knowledgeContext = docs.map(d => `Title: ${d.title}\nContent: ${d.content}`).join("\n\n");
           }
         }
@@ -44,23 +47,7 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. DYNAMIC AUTO-DISCOVERY: Fetch active models live from Groq
-    const modelsListRes = await fetch('https://api.groq.com/openai/v1/models', {
-      headers: { 'Authorization': `Bearer ${cleanKey}` }
-    });
-    const modelsData = await modelsListRes.json();
-
-    if (modelsData.error) {
-      return res.status(200).json({ reply: `Groq Auth Error: ${modelsData.error.message}` });
-    }
-
-    // Pick active live model ID (e.g. llama-3.1-8b-instant or similar active model)
-    const activeModels = modelsData.data || [];
-    const selectedModel = activeModels.find(m => m.id.includes('llama-3.1') || m.id.includes('llama3'))?.id 
-                          || activeModels[0]?.id 
-                          || 'llama-3.1-8b-instant';
-
-    // 3. Ultra-Fast Chat Completion
+    // 2. Groq Direct API Call (Active Free Model: llama-3.1-8b-instant)
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -68,7 +55,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: selectedModel,
+        model: 'llama-3.1-8b-instant',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
@@ -84,4 +71,10 @@ export default async function handler(req, res) {
     }
 
     const replyText = data.choices?.[0]?.message?.content;
-    return res.status(200).json({ reply: replyText || 'No response
+    return res.status(200).json({ reply: replyText || 'No response generated.' });
+
+  } catch (err) {
+    // 200 HTTP status keeps the widget from breaking into red connection error
+    return res.status(200).json({ reply: 'Server Exception: ' + err.message });
+  }
+}
