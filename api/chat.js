@@ -15,10 +15,12 @@ export default async function handler(req, res) {
     if (!message) return res.status(400).json({ error: 'Message is required' });
 
     if (!geminiApiKey) {
-      return res.status(200).json({ reply: 'GEMINI_API_KEY is missing in Vercel Environment Variables.' });
+      return res.status(200).json({ reply: 'GEMINI_API_KEY environment variable is missing in Vercel.' });
     }
 
-    // 1. Fetch Knowledge Base from Supabase
+    const cleanKey = geminiApiKey.trim();
+
+    // 1. Supabase Knowledge Base Fetch
     let knowledgeContext = "No specific knowledge base uploaded yet.";
     if (supabaseUrl && supabaseKey) {
       try {
@@ -43,50 +45,54 @@ export default async function handler(req, res) {
       }
     }
 
-    const systemPrompt = `You are HelpPilot AI, an intelligent customer support assistant. Answer the user's question concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
+    const systemPrompt = `You are HelpPilot AI, a helpful customer support assistant. Answer the user's question concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. High-Reliability Dual Endpoint Fallback (v1 and v1beta)
-    const cleanKey = geminiApiKey.trim();
-    const endpoints = [
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${cleanKey}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cleanKey}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`,
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${cleanKey}`
-    ];
+    // 2. AUTO-DISCOVERY: Fetch list of active models directly from Google for this key
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+    const listData = await listRes.json();
 
-    let replyText = null;
-    let apiErrorMsg = "";
-
-    for (const url of endpoints) {
-      try {
-        const geminiRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: systemPrompt }] }]
-          })
-        });
-
-        const aiData = await geminiRes.json();
-
-        if (aiData.candidates && aiData.candidates[0]?.content?.parts?.[0]?.text) {
-          replyText = aiData.candidates[0].content.parts[0].text;
-          break; // Successful connection!
-        } else if (aiData.error) {
-          apiErrorMsg = aiData.error.message;
-        }
-      } catch (e) {
-        apiErrorMsg = e.message;
-      }
+    if (listData.error) {
+      return res.status(200).json({ reply: `Google Key Error [${listData.error.code}]: ${listData.error.message}` });
     }
 
+    // Find an active model that supports text generation
+    const availableModels = listData.models || [];
+    const validModel = availableModels.find(m => 
+      m.supportedGenerationMethods?.includes('generateContent') && m.name.includes('flash')
+    ) || availableModels.find(m => 
+      m.supportedGenerationMethods?.includes('generateContent')
+    );
+
+    if (!validModel) {
+      return res.status(200).json({ reply: 'No text generation models found for this API Key.' });
+    }
+
+    // 3. Generate response using the auto-detected valid model
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${validModel.name}:generateContent?key=${cleanKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }] }]
+        })
+      }
+    );
+
+    const aiData = await geminiRes.json();
+
+    if (aiData.error) {
+      return res.status(200).json({ reply: `Google API Error: ${aiData.error.message}` });
+    }
+
+    const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (replyText) {
       return res.status(200).json({ reply: replyText });
     }
 
-    return res.status(200).json({ reply: `Google API Error: ${apiErrorMsg || 'Connection failed.'}` });
+    return res.status(200).json({ reply: 'Empty response received from AI model.' });
 
   } catch (err) {
-    return res.status(500).json({ error: 'Server Catch Error: ' + err.message });
+    return res.status(500).json({ error: 'Server Error: ' + err.message });
   }
 }
