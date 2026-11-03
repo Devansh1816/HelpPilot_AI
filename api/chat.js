@@ -20,10 +20,12 @@ export default async function handler(req, res) {
 
     const cleanKey = geminiApiKey.trim();
 
-    // 1. Supabase Knowledge Base Fetch
+    // 1. Supabase Fast Fetch (3-second strict timeout)
     let knowledgeContext = "No specific knowledge base uploaded yet.";
     if (supabaseUrl && supabaseKey) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
         const supaRes = await fetch(
           `${supabaseUrl}/rest/v1/knowledge_base?app_id=eq.${appId}&select=title,content`,
           {
@@ -31,9 +33,11 @@ export default async function handler(req, res) {
               'apikey': supabaseKey,
               'Authorization': `Bearer ${supabaseKey}`,
               'Content-Type': 'application/json'
-            }
+            },
+            signal: controller.signal
           }
         );
+        clearTimeout(timeoutId);
         if (supaRes.ok) {
           const docs = await supaRes.json();
           if (docs && docs.length > 0) {
@@ -41,59 +45,59 @@ export default async function handler(req, res) {
           }
         }
       } catch (e) {
-        console.error("Supabase fetch error:", e);
+        console.error("Supabase fast-skip:", e.message);
       }
     }
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer the user's question concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. DYNAMIC AUTO-DISCOVERY: Fetch active models list directly from Google API
-    const listModelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
-    const listData = await listModelsRes.json();
+    // 2. Direct Fast Sequential Call to Active Gemini Models
+    const modelsToTry = [
+      'gemini-2.0-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro'
+    ];
 
-    if (listData.error) {
-      return res.status(200).json({ reply: `Google Key Error [${listData.error.code}]: ${listData.error.message}` });
-    }
+    let replyText = null;
+    let lastError = null;
 
-    const availableModels = listData.models || [];
+    for (const model of modelsToTry) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    // Filter models that support generateContent method
-    const validModels = availableModels.filter(m => 
-      m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')
-    );
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: systemPrompt }] }]
+            }),
+            signal: controller.signal
+          }
+        );
+        clearTimeout(timeoutId);
 
-    if (validModels.length === 0) {
-      return res.status(200).json({ reply: 'No active text generation models found for your Google API Key.' });
-    }
+        const aiData = await geminiRes.json();
 
-    // Auto-select best matching model (Prefer flash model, fallback to first valid model)
-    const targetModel = validModels.find(m => m.name.includes('flash')) || validModels[0];
-    const modelEndpointName = targetModel.name; // Formatted as "models/gemini-..."
-
-    // 3. Generate Content using the Auto-Discovered Active Model
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${modelEndpointName}:generateContent?key=${cleanKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: systemPrompt }] }]
-        })
+        if (aiData.candidates && aiData.candidates[0]?.content?.parts?.[0]?.text) {
+          replyText = aiData.candidates[0].content.parts[0].text;
+          break;
+        } else if (aiData.error) {
+          lastError = aiData.error.message;
+        }
+      } catch (e) {
+        lastError = e.message;
       }
-    );
-
-    const aiData = await geminiRes.json();
-
-    if (aiData.error) {
-      return res.status(200).json({ reply: `Google API Error: ${aiData.error.message}` });
     }
 
-    const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (replyText) {
       return res.status(200).json({ reply: replyText });
     }
 
-    return res.status(200).json({ reply: 'Empty response received from AI model.' });
+    return res.status(200).json({ reply: `Google API Error: ${lastError || 'Request timeout.'}` });
 
   } catch (err) {
     return res.status(500).json({ error: 'Server Error: ' + err.message });
