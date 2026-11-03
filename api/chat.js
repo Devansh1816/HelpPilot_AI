@@ -18,34 +18,58 @@ export default async function handler(req, res) {
       return res.status(200).json({ reply: 'Error: GROQ_API_KEY is missing in Vercel settings.' });
     }
 
-    // 1. Groq Direct API Call (Using standard llama-3.3-70b-versatile)
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey.trim()}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: 'You are HelpPilot AI, a helpful customer support assistant. Answer the user concisely.' },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.2
-      })
-    });
+    const cleanKey = groqApiKey.trim();
 
-    const data = await groqRes.json();
+    // List of alternative models to test sequentially for your API key
+    const candidateModels = [
+      'llama-3.1-8b-instant',
+      'mixtral-8x7b-32768',
+      'gemma2-9b-it',
+      'llama3-8b-8192',
+      'llama3-70b-8192'
+    ];
 
-    if (data.error) {
-      return res.status(200).json({ reply: `Groq API Error: ${data.error.message}` });
+    let replyText = null;
+    let lastErrorMsg = '';
+
+    for (const modelName of candidateModels) {
+      try {
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cleanKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              { role: 'system', content: 'You are HelpPilot AI, a helpful customer support assistant. Answer the user concisely.' },
+              { role: 'user', content: message }
+            ],
+            temperature: 0.2
+          })
+        });
+
+        const data = await groqRes.json();
+
+        if (data.choices?.[0]?.message?.content) {
+          replyText = data.choices[0].message.content;
+          break; // Successfully got response from an active model!
+        } else if (data.error) {
+          lastErrorMsg = data.error.message;
+        }
+      } catch (err) {
+        lastErrorMsg = err.message;
+      }
     }
 
-    const replyText = data.choices?.[0]?.message?.content;
-    return res.status(200).json({ reply: replyText || 'Hello! I am your AI assistant. How can I help you today?' });
+    if (replyText) {
+      return res.status(200).json({ reply: replyText });
+    }
+
+    return res.status(200).json({ reply: `Groq API Error: ${lastErrorMsg || 'No accessible models found.'}` });
 
   } catch (err) {
-    // Catch-all ensures the widget NEVER shows connection error
     return res.status(200).json({ reply: 'Server Exception: ' + err.message });
   }
 }
