@@ -18,7 +18,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ reply: 'GEMINI_API_KEY is missing in Vercel Environment Variables.' });
     }
 
-    // 1. Supabase Knowledge Base Fetch
+    // 1. Fetch Knowledge Base from Supabase
     let knowledgeContext = "No specific knowledge base uploaded yet.";
     if (supabaseUrl && supabaseKey) {
       try {
@@ -43,43 +43,40 @@ export default async function handler(req, res) {
       }
     }
 
-    const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer the user's question concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
+    const systemPrompt = `You are HelpPilot AI, an intelligent customer support assistant. Answer the user's question concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Auto Fallback Candidate Models Loop
-    const candidateModels = [
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-002',
-      'gemini-1.5-flash-001',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash'
+    // 2. High-Reliability Dual Endpoint Fallback (v1 and v1beta)
+    const cleanKey = geminiApiKey.trim();
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${cleanKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cleanKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${cleanKey}`
     ];
 
     let replyText = null;
-    let lastError = null;
+    let apiErrorMsg = "";
 
-    for (const model of candidateModels) {
+    for (const url of endpoints) {
       try {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey.trim()}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: systemPrompt }] }]
-            })
-          }
-        );
+        const geminiRes = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: systemPrompt }] }]
+          })
+        });
 
         const aiData = await geminiRes.json();
 
         if (aiData.candidates && aiData.candidates[0]?.content?.parts?.[0]?.text) {
           replyText = aiData.candidates[0].content.parts[0].text;
-          break; // Valid model hit!
+          break; // Successful connection!
         } else if (aiData.error) {
-          lastError = aiData.error.message;
+          apiErrorMsg = aiData.error.message;
         }
       } catch (e) {
-        lastError = e.message;
+        apiErrorMsg = e.message;
       }
     }
 
@@ -87,9 +84,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ reply: replyText });
     }
 
-    return res.status(200).json({ reply: `Google API Error: ${lastError || 'Unable to connect to any Gemini model.'}` });
+    return res.status(200).json({ reply: `Google API Error: ${apiErrorMsg || 'Connection failed.'}` });
 
   } catch (err) {
-    return res.status(500).json({ error: 'Server Error: ' + err.message });
+    return res.status(500).json({ error: 'Server Catch Error: ' + err.message });
   }
 }
