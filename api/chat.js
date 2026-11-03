@@ -44,31 +44,72 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Direct single call using Groq's active 2026 standard model
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${cleanKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.2
-      })
-    });
-
-    const data = await groqRes.json();
-
-    if (data.error) {
-      return res.status(200).json({ reply: `Groq API Error: ${data.error.message}` });
+    // 2. Fetch live models directly from Groq API for this specific key
+    let candidateModels = [];
+    try {
+      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      const modelsData = await modelsRes.json();
+      if (modelsData && Array.isArray(modelsData.data)) {
+        candidateModels = modelsData.data
+          .map(m => m.id)
+          .filter(id => {
+            const lower = id.toLowerCase();
+            return !lower.includes('whisper') && 
+                   !lower.includes('embed') && 
+                   !lower.includes('audio') &&
+                   !lower.includes('guard');
+          });
+      }
+    } catch (e) {
+      console.error("Model fetch error:", e);
     }
 
-    const replyText = data.choices?.[0]?.message?.content;
-    return res.status(200).json({ reply: replyText || 'No response generated.' });
+    // Add standard backups just in case API list is restricted
+    candidateModels.push('llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768');
+    candidateModels = Array.from(new Set(candidateModels));
+
+    let replyText = null;
+    let lastErrorMsg = '';
+
+    // 3. Loop through available models until one successfully responds
+    for (const modelName of candidateModels) {
+      try {
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cleanKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: message }
+            ],
+            temperature: 0.2
+          })
+        });
+
+        const data = await groqRes.json();
+
+        if (data.choices?.[0]?.message?.content) {
+          replyText = data.choices[0].message.content;
+          break; // Success! Found the working model.
+        } else if (data.error) {
+          lastErrorMsg = data.error.message;
+        }
+      } catch (err) {
+        lastErrorMsg = err.message;
+      }
+    }
+
+    if (replyText) {
+      return res.status(200).json({ reply: replyText });
+    }
+
+    return res.status(200).json({ reply: `Groq API Error: ${lastErrorMsg || 'All models failed.'}` });
 
   } catch (err) {
     return res.status(200).json({ reply: 'Server Exception: ' + err.message });
