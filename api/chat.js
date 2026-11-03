@@ -45,30 +45,49 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer the user's question concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Active Gemini REST Model Call (gemini-1.5-flash)
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey.trim()}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: systemPrompt }] }]
-        })
+    // 2. Auto Fallback Candidate Models Loop
+    const candidateModels = [
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash-002',
+      'gemini-1.5-flash-001',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ];
+
+    let replyText = null;
+    let lastError = null;
+
+    for (const model of candidateModels) {
+      try {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey.trim()}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: systemPrompt }] }]
+            })
+          }
+        );
+
+        const aiData = await geminiRes.json();
+
+        if (aiData.candidates && aiData.candidates[0]?.content?.parts?.[0]?.text) {
+          replyText = aiData.candidates[0].content.parts[0].text;
+          break; // Valid model hit!
+        } else if (aiData.error) {
+          lastError = aiData.error.message;
+        }
+      } catch (e) {
+        lastError = e.message;
       }
-    );
-
-    const aiData = await geminiRes.json();
-
-    if (aiData.error) {
-      return res.status(200).json({ reply: `Google API Error [${aiData.error.code}]: ${aiData.error.message}` });
     }
 
-    const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (replyText) {
       return res.status(200).json({ reply: replyText });
     }
 
-    return res.status(200).json({ reply: 'Empty AI response received.' });
+    return res.status(200).json({ reply: `Google API Error: ${lastError || 'Unable to connect to any Gemini model.'}` });
 
   } catch (err) {
     return res.status(500).json({ error: 'Server Error: ' + err.message });
