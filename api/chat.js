@@ -18,6 +18,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ reply: 'GROQ_API_KEY missing in Vercel Environment Variables.' });
     }
 
+    const cleanKey = groqApiKey.trim();
+
     // 1. Supabase Knowledge Base Fetch
     let knowledgeContext = "No specific knowledge base uploaded yet.";
     if (supabaseUrl && supabaseKey) {
@@ -45,31 +47,54 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Groq API Call (Llama-3.3-70b-versatile)
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey.trim()}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.2
-      })
-    });
+    // 2. Groq Active Models Fallback Loop
+    const candidateModels = [
+      'llama-3.1-8b-instant',
+      'llama3-70b-8192',
+      'llama3-8b-8192',
+      'mixtral-8x7b-32768',
+      'gemma2-9b-it'
+    ];
 
-    const data = await groqRes.json();
+    let replyText = null;
+    let lastError = "";
 
-    if (data.error) {
-      return res.status(200).json({ reply: `Groq Error: ${data.error.message}` });
+    for (const model of candidateModels) {
+      try {
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cleanKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: message }
+            ],
+            temperature: 0.2
+          })
+        });
+
+        const data = await groqRes.json();
+
+        if (data.choices?.[0]?.message?.content) {
+          replyText = data.choices[0].message.content;
+          break; // Connected successfully!
+        } else if (data.error) {
+          lastError = data.error.message;
+        }
+      } catch (e) {
+        lastError = e.message;
+      }
     }
 
-    const replyText = data.choices?.[0]?.message?.content;
-    return res.status(200).json({ reply: replyText || 'No response generated.' });
+    if (replyText) {
+      return res.status(200).json({ reply: replyText });
+    }
+
+    return res.status(200).json({ reply: `Groq Error: ${lastError || 'Unable to connect to Groq API.'}` });
 
   } catch (err) {
     return res.status(500).json({ error: 'Server Error: ' + err.message });
