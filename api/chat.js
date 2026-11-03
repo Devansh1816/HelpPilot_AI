@@ -13,19 +13,14 @@ export default async function handler(req, res) {
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
     if (!message) return res.status(400).json({ error: 'Message is required' });
-
-    if (!geminiApiKey) {
-      return res.status(200).json({ reply: 'GEMINI_API_KEY environment variable is missing in Vercel.' });
-    }
+    if (!geminiApiKey) return res.status(200).json({ reply: 'GEMINI_API_KEY missing in Vercel.' });
 
     const cleanKey = geminiApiKey.trim();
 
-    // 1. Supabase Fast Fetch (3-second strict timeout)
+    // 1. Supabase Knowledge Base Fetch
     let knowledgeContext = "No specific knowledge base uploaded yet.";
     if (supabaseUrl && supabaseKey) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
         const supaRes = await fetch(
           `${supabaseUrl}/rest/v1/knowledge_base?app_id=eq.${appId}&select=title,content`,
           {
@@ -33,11 +28,9 @@ export default async function handler(req, res) {
               'apikey': supabaseKey,
               'Authorization': `Bearer ${supabaseKey}`,
               'Content-Type': 'application/json'
-            },
-            signal: controller.signal
+            }
           }
         );
-        clearTimeout(timeoutId);
         if (supaRes.ok) {
           const docs = await supaRes.json();
           if (docs && docs.length > 0) {
@@ -45,59 +38,41 @@ export default async function handler(req, res) {
           }
         }
       } catch (e) {
-        console.error("Supabase fast-skip:", e.message);
+        console.error("Supabase fetch error:", e);
       }
     }
 
-    const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer the user's question concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
+    const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Direct Fast Sequential Call to Active Gemini Models
-    const modelsToTry = [
-      'gemini-2.0-flash',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro'
-    ];
+    // 2. Fetch active supported models directly from Google API
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+    const listData = await listRes.json();
 
-    let replyText = null;
-    let lastError = null;
+    if (listData.error) {
+      return res.status(200).json({ reply: `Google Key Error: ${listData.error.message}` });
+    }
 
-    for (const model of modelsToTry) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+    // Auto-select active model that supports generateContent
+    const validModel = listData.models?.find(m => m.supportedGenerationMethods?.includes('generateContent'));
 
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: systemPrompt }] }]
-            }),
-            signal: controller.signal
-          }
-        );
-        clearTimeout(timeoutId);
+    if (!validModel) {
+      return res.status(200).json({ reply: 'No active text generation models found for this API Key.' });
+    }
 
-        const aiData = await geminiRes.json();
-
-        if (aiData.candidates && aiData.candidates[0]?.content?.parts?.[0]?.text) {
-          replyText = aiData.candidates[0].content.parts[0].text;
-          break;
-        } else if (aiData.error) {
-          lastError = aiData.error.message;
-        }
-      } catch (e) {
-        lastError = e.message;
+    // 3. Generate response with auto-discovered active model
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${validModel.name}:generateContent?key=${cleanKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] })
       }
-    }
+    );
 
-    if (replyText) {
-      return res.status(200).json({ reply: replyText });
-    }
+    const aiData = await geminiRes.json();
+    const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    return res.status(200).json({ reply: `Google API Error: ${lastError || 'Request timeout.'}` });
+    return res.status(200).json({ reply: replyText || aiData?.error?.message || 'Empty response.' });
 
   } catch (err) {
     return res.status(500).json({ error: 'Server Error: ' + err.message });
