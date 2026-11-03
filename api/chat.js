@@ -13,10 +13,7 @@ export default async function handler(req, res) {
     const groqApiKey = process.env.GROQ_API_KEY;
 
     if (!message) return res.status(200).json({ reply: 'Message is required.' });
-
-    if (!groqApiKey) {
-      return res.status(200).json({ reply: 'GROQ_API_KEY is missing in Vercel Environment Variables.' });
-    }
+    if (!groqApiKey) return res.status(200).json({ reply: 'GROQ_API_KEY is missing in Vercel Environment Variables.' });
 
     const cleanKey = groqApiKey.trim();
 
@@ -47,7 +44,26 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Groq Direct API Call (Active Free Model: llama-3.1-8b-instant)
+    // 2. AUTO-DISCOVERY: Fetch live active models for this specific Groq key
+    let targetModel = null;
+    try {
+      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      const modelsData = await modelsRes.json();
+      if (modelsData.data && Array.isArray(modelsData.data) && modelsData.data.length > 0) {
+        // Pick first model accessible to this API key
+        targetModel = modelsData.data[0].id;
+      }
+    } catch (e) {
+      console.error("Auto-discovery failed:", e);
+    }
+
+    if (!targetModel) {
+      return res.status(200).json({ reply: 'Unable to fetch accessible models from Groq. Please check GROQ_API_KEY.' });
+    }
+
+    // 3. Ultra-Fast Chat Completion using Auto-Discovered Model
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -55,7 +71,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: targetModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
@@ -74,7 +90,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: replyText || 'No response generated.' });
 
   } catch (err) {
-    // 200 HTTP status keeps the widget from breaking into red connection error
     return res.status(200).json({ reply: 'Server Exception: ' + err.message });
   }
 }
