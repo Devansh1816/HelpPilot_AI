@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const groqApiKey = process.env.GROQ_API_KEY;
 
     if (!message) return res.status(200).json({ reply: 'Message is required.' });
-    if (!groqApiKey) return res.status(200).json({ reply: 'GROQ_API_KEY is missing in Vercel settings.' });
+    if (!groqApiKey) return res.status(200).json({ reply: 'GROQ_API_KEY missing in Vercel settings.' });
 
     const cleanKey = groqApiKey.trim();
 
@@ -38,47 +38,46 @@ export default async function handler(req, res) {
           }
         }
       } catch (e) {
-        console.error("Supabase fetch issue:", e);
+        console.error("Supabase issue:", e);
       }
     }
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer concisely based ONLY on this context:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
-    // 2. Fetch accessible text models directly from Groq Account
-    let dynamicModels = [];
-    try {
-      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
-        headers: { 'Authorization': `Bearer ${cleanKey}` }
+    // 2. Direct single call to Groq standard model
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cleanKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ]
+      })
+    });
+
+    const data = await groqRes.json();
+
+    if (data.error) {
+      // Fallback try with mixtral if model ID fails
+      const fallbackRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cleanKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'mixtral-8x7b-32768',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: message }
+          ]
+        })
       });
-      const modelsData = await modelsRes.json();
-      if (modelsData && Array.isArray(modelsData.data)) {
-        dynamicModels = modelsData.data
-          .map(m => m.id)
-          .filter(id => {
-            const lower = id.toLowerCase();
-            return !lower.includes('whisper') && 
-                   !lower.includes('guard') && 
-                   !lower.includes('embed') && 
-                   !lower.includes('vision') && 
-                   !lower.includes('audio');
-          });
-      }
-    } catch (e) {
-      console.error("Groq models listing error:", e);
-    }
-
-    // Combine dynamically discovered models with active 2026 Groq production models
-    const targetCandidateList = Array.from(new Set([
-      ...dynamicModels,
-      'openai/gpt-oss-20b',
-      'openai/gpt-oss-120b',
-      'mixtral-8x7b-32768'
-    ]));
-
-    let replyText = null;
-    let lastError = "";
-
-    // Iterate through valid candidates until an active model completes response
-    for (const modelId of targetCandidateList) {
-      try {
-        const groqRes =
+      const fallbackData = await fallbackRes.json();
+      const fbText = fallbackData.choices?.[0]?.message?.content;
+      return res.status(200).
