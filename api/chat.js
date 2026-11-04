@@ -11,14 +11,7 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
         }
 
-        const prompt = `You are a helpful customer support AI for HelpPilot AI (Workspace: ${appId}). User message: "${message}". 
-        Answer the user's query politely and directly. Also check if the user is frustrated or asking for a human agent.
-        Return ONLY valid JSON in this format:
-        {
-            "reply": "your support answer here",
-            "sentiment": "neutral" or "frustrated",
-            "escalated": true or false
-        }`;
+        const prompt = `You are a helpful customer support AI for HelpPilot AI (Workspace: ${appId}). Answer this customer query directly and helpfully: "${message}". Keep your response natural and concise.`;
 
         const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
@@ -27,29 +20,20 @@ export default async function handler(req, res) {
         });
 
         const data = await geminiRes.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Hello! How can I assist you further today?";
         
-        let parsedResponse;
-        try {
-            const cleanJsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            parsedResponse = JSON.parse(cleanJsonText);
-        } catch (e) {
-            parsedResponse = {
-                reply: rawText || "Here is the information you requested regarding your support query.",
-                sentiment: "neutral",
-                escalated: false
-            };
-        }
+        // Simple sentiment check
+        const isFrustrated = message.toLowerCase().includes('angry') || message.toLowerCase().includes('worst') || message.toLowerCase().includes('refund') || message.toLowerCase().includes('human');
 
         return res.status(200).json({
-            reply: parsedResponse.reply,
-            sentiment: parsedResponse.sentiment || "neutral",
-            escalated: parsedResponse.escalated || false
+            reply: replyText.trim(),
+            sentiment: isFrustrated ? "frustrated" : "neutral",
+            escalated: isFrustrated ? true : false
         });
 
     } catch (err) {
         return res.status(200).json({
-            reply: "We have received your query regarding '" + message + "' and our team is looking into it.",
+            reply: "Thanks for reaching out! How can I help you today?",
             sentiment: "neutral",
             escalated: false
         });
