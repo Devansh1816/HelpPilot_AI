@@ -8,10 +8,18 @@ export default async function handler(req, res) {
 
   try {
     const { message } = req.body || {};
-
     if (!message) return res.status(200).json({ reply: 'Please enter a message.' });
 
     const lowerMsg = message.toLowerCase();
+    
+    // Phase 3: Sentiment & Escalation Detection
+    let sentiment = 'neutral';
+    let escalated = false;
+
+    if (lowerMsg.includes('worst') || lowerMsg.includes('useless') || lowerMsg.includes('scam') || lowerMsg.includes('angry') || lowerMsg.includes('refund') || lowerMsg.includes('legal')) {
+      sentiment = 'frustrated';
+      escalated = true;
+    }
 
     let replyText = "Hello! I am HelpPilot AI. How can I help you today?";
     
@@ -20,14 +28,16 @@ export default async function handler(req, res) {
     } else if (lowerMsg.includes('pricing') || lowerMsg.includes('price') || lowerMsg.includes('plan')) {
       replyText = "HelpPilot AI offers a free plan up to 100 queries, with premium tiers starting at affordable monthly rates.";
     } else if (lowerMsg.includes('embed') || lowerMsg.includes('widget') || lowerMsg.includes('website')) {
-      replyText = "To embed HelpPilot AI, simply copy the widget HTML snippet and paste it right before the closing </body> tag of your website.";
-    } else if (lowerMsg.includes('24/7') || lowerMsg.includes('support') || lowerMsg.includes('tiers')) {
-      replyText = "Yes! 24/7 priority customer support is fully available across all premium subscription tiers.";
+      replyText = "To embed HelpPilot AI, simply copy the widget HTML snippet and paste it right before the closing </body> tag.";
     } else {
-      replyText = `Thank you for your question about "${message}". Our support team is here 24/7 to help you with any products or services.`;
+      replyText = `Thank you for your message. Our support team is available 24/7 to assist you with "${message}".`;
     }
 
-    return res.status(200).json({ reply: replyText });
+    if (escalated) {
+      replyText += " ⚠️ [Auto-Escalated: Customer appears frustrated. Handed over to human agent queue.]";
+    }
+
+    return res.status(200).json({ reply: replyText, sentiment, escalated });
 
   } catch (err) {
     return res.status(200).json({ reply: 'Server Exception: ' + err.message });
