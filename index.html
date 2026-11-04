@@ -14,269 +14,288 @@
     <h1>HelpPilot AI Demo Website</h1>
     <p>Look at the bottom-right corner of this page to test your embeddable chat widget!</p>
 
-    <!-- HELP PILOT AI EMBED CODE -->
-    <script src="widget.js" data-app-id="test-demo-123"></script>
     <!-- HelpPilot AI Widget -->
-<div id="helppilot-widget-container">
-  <!-- Floating Launcher Button -->
-  <button id="helppilot-launcher" aria-label="Open Chat">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-    </svg>
-  </button>
+    <div id="helppilot-widget-container">
+      <!-- Floating Launcher Button -->
+      <button id="helppilot-launcher" aria-label="Open Chat">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+      </button>
 
-  <!-- Chat Window Box -->
-  <div id="helppilot-window" class="helppilot-hidden">
-    <div class="helppilot-header">
-      <div class="helppilot-title-area">
-        <span class="helppilot-status-dot"></span>
-        <div>
-          <h3>HelpPilot AI</h3>
-          <p>24/7 Support Online</p>
+      <!-- Chat Window Box -->
+      <div id="helppilot-window" class="helppilot-hidden">
+        <div class="helppilot-header">
+          <div class="helppilot-title-area">
+            <span class="helppilot-status-dot"></span>
+            <div>
+              <h3>HelpPilot AI</h3>
+              <p>24/7 Support Online</p>
+            </div>
+          </div>
+          <button id="helppilot-close" aria-label="Close Chat">&times;</button>
+        </div>
+
+        <div id="helppilot-messages" class="helppilot-messages">
+          <div class="helppilot-msg bot">
+            👋 Hello! How can I help you today? Ask me anything about our products or services.
+          </div>
+        </div>
+
+        <div id="helppilot-typing" class="helppilot-typing helppilot-hidden">
+          <span></span><span></span><span></span>
+        </div>
+
+        <div class="helppilot-input-area">
+          <input type="text" id="helppilot-input" placeholder="Type your message..." />
+          <button id="helppilot-send">Send</button>
         </div>
       </div>
-      <button id="helppilot-close" aria-label="Close Chat">&times;</button>
     </div>
 
-    <div id="helppilot-messages" class="helppilot-messages">
-      <div class="helppilot-msg bot">
-        👋 Hello! How can I help you today? Ask me anything about our products or services.
-      </div>
-    </div>
-
-    <div id="helppilot-typing" class="helppilot-typing helppilot-hidden">
-      <span></span><span></span><span></span>
-    </div>
-
-    <div class="helppilot-input-area">
-      <input type="text" id="helppilot-input" placeholder="Type your message..." />
-      <button id="helppilot-send">Send</button>
-    </div>
-  </div>
-</div>
-
-<style>
-  #helppilot-widget-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    z-index: 999999;
-  }
-  #helppilot-launcher {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    color: white;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
-  #helppilot-launcher:hover {
-    transform: scale(1.08);
-    box-shadow: 0 15px 30px rgba(99, 102, 241, 0.6);
-  }
-  #helppilot-window {
-    position: absolute;
-    bottom: 80px;
-    right: 0;
-    width: 380px;
-    height: 520px;
-    background: #0f172a;
-    border-radius: 16px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  #helppilot-window.helppilot-hidden {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-    pointer-events: none;
-  }
-  .helppilot-header {
-    background: #1e293b;
-    padding: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  .helppilot-title-area {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .helppilot-status-dot {
-    width: 10px;
-    height: 10px;
-    background: #22c55e;
-    border-radius: 50%;
-    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
-  }
-  .helppilot-header h3 {
-    margin: 0;
-    color: #f8fafc;
-    font-size: 16px;
-    font-weight: 600;
-  }
-  .helppilot-header p {
-    margin: 0;
-    color: #94a3b8;
-    font-size: 12px;
-  }
-  #helppilot-close {
-    background: none;
-    border: none;
-    color: #94a3b8;
-    font-size: 24px;
-    cursor: pointer;
-  }
-  .helppilot-messages {
-    flex: 1;
-    padding: 16px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .helppilot-msg {
-    max-width: 80%;
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-size: 14px;
-    line-height: 1.5;
-    word-break: break-word;
-  }
-  .helppilot-msg.bot {
-    background: #1e293b;
-    color: #f1f5f9;
-    align-self: flex-start;
-    border-bottom-left-radius: 4px;
-  }
-  .helppilot-msg.user {
-    background: #6366f1;
-    color: white;
-    align-self: flex-end;
-    border-bottom-right-radius: 4px;
-  }
-  .helppilot-typing {
-    padding: 8px 16px;
-    display: flex;
-    gap: 4px;
-    align-self: flex-start;
-    background: #1e293b;
-    border-radius: 12px;
-    margin-left: 16px;
-    margin-bottom: 8px;
-  }
-  .helppilot-typing span {
-    width: 6px;
-    height: 6px;
-    background: #94a3b8;
-    border-radius: 50%;
-    animation: bounce 1.4s infinite ease-in-out both;
-  }
-  .helppilot-typing span:nth-child(1) { animation-delay: -0.32s; }
-  .helppilot-typing span:nth-child(2) { animation-delay: -0.16s; }
-  @keyframes bounce {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1.0); }
-  }
-  .helppilot-input-area {
-    padding: 12px;
-    background: #1e293b;
-    display: flex;
-    gap: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  #helppilot-input {
-    flex: 1;
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: white;
-    font-size: 14px;
-    outline: none;
-  }
-  #helppilot-input:focus {
-    border-color: #6366f1;
-  }
-  #helppilot-send {
-    background: #6366f1;
-    color: white;
-    border: none;
-    padding: 0 16px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  #helppilot-send:hover {
-    background: #4f46e5;
-  }
-  .helppilot-hidden { display: none; }
-</style>
-
-<script>
-  (function () {
-    const launcher = document.getElementById('helppilot-launcher');
-    const win = document.getElementById('helppilot-window');
-    const closeBtn = document.getElementById('helppilot-close');
-    const sendBtn = document.getElementById('helppilot-send');
-    const input = document.getElementById('helppilot-input');
-    const messages = document.getElementById('helppilot-messages');
-    const typing = document.getElementById('helppilot-typing');
-
-    let isOpen = false;
-
-    launcher.addEventListener('click', () => {
-      isOpen = !isOpen;
-      if (isOpen) {
-        win.classList.remove('helppilot-hidden');
-        input.focus();
-      } else {
-        win.classList.add('helppilot-hidden');
+    <style>
+      #helppilot-widget-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        z-index: 999999;
       }
-    });
+      #helppilot-launcher {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        color: white;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      #helppilot-launcher:hover {
+        transform: scale(1.08);
+        box-shadow: 0 15px 30px rgba(99, 102, 241, 0.6);
+      }
+      #helppilot-window {
+        position: absolute;
+        bottom: 80px;
+        right: 0;
+        width: 380px;
+        height: 520px;
+        background: #0f172a;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      #helppilot-window.helppilot-hidden {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+        pointer-events: none;
+      }
+      .helppilot-header {
+        background: #1e293b;
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .helppilot-title-area {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .helppilot-status-dot {
+        width: 10px;
+        height: 10px;
+        background: #22c55e;
+        border-radius: 50%;
+        box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+      }
+      .helppilot-header h3 {
+        margin: 0;
+        color: #f8fafc;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .helppilot-header p {
+        margin: 0;
+        color: #94a3b8;
+        font-size: 12px;
+      }
+      #helppilot-close {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 24px;
+        cursor: pointer;
+      }
+      .helppilot-messages {
+        flex: 1;
+        padding: 16px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .helppilot-msg {
+        max-width: 80%;
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.5;
+        word-break: break-word;
+      }
+      .helppilot-msg.bot {
+        background: #1e293b;
+        color: #f1f5f9;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+      }
+      .helppilot-msg.user {
+        background: #6366f1;
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+      }
+      .helppilot-typing {
+        padding: 8px 16px;
+        display: flex;
+        gap: 4px;
+        align-self: flex-start;
+        background: #1e293b;
+        border-radius: 12px;
+        margin-left: 16px;
+        margin-bottom: 8px;
+      }
+      .helppilot-typing span {
+        width: 6px;
+        height: 6px;
+        background: #94a3b8;
+        border-radius: 50%;
+        animation: bounce 1.4s infinite ease-in-out both;
+      }
+      .helppilot-typing span:nth-child(1) { animation-delay: -0.32s; }
+      .helppilot-typing span:nth-child(2) { animation-delay: -0.16s; }
+      @keyframes bounce {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1.0); }
+      }
+      .helppilot-input-area {
+        padding: 12px;
+        background: #1e293b;
+        display: flex;
+        gap: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      #helppilot-input {
+        flex: 1;
+        background: #0f172a;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 10px 14px;
+        color: white;
+        font-size: 14px;
+        outline: none;
+      }
+      #helppilot-input:focus {
+        border-color: #6366f1;
+      }
+      #helppilot-send {
+        background: #6366f1;
+        color: white;
+        border: none;
+        padding: 0 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      #helppilot-send:hover {
+        background: #4f46e5;
+      }
+      .helppilot-hidden { display: none; }
+    </style>
 
-    closeBtn.addEventListener('click', () => {
-      isOpen = false;
-      win.classList.add('helppilot-hidden');
-    });
+    <script>
+      (function () {
+        const launcher = document.getElementById('helppilot-launcher');
+        const win = document.getElementById('helppilot-window');
+        const closeBtn = document.getElementById('helppilot-close');
+        const sendBtn = document.getElementById('helppilot-send');
+        const input = document.getElementById('helppilot-input');
+        const messages = document.getElementById('helppilot-messages');
+        const typing = document.getElementById('helppilot-typing');
 
-    async function sendMessage() {
-      const text = input.value.trim();
-      if (!text) return;
+        let isOpen = false;
 
-      // Append User Message
-      const userDiv = document.createElement('div');
-      userDiv.className = 'helppilot-msg user';
-      userDiv.textContent = text;
-      messages.appendChild(userDiv);
-      input.value = '';
-      messages.scrollTop = messages.scrollHeight;
-
-      // Show Typing
-      typing.classList.remove('helppilot-hidden');
-      messages.scrollTop = messages.scrollHeight;
-
-      try {
-        const res = await fetch('https://helppilotai.vercel.app/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text })
+        launcher.addEventListener('click', () => {
+          isOpen = !isOpen;
+          if (isOpen) {
+            win.classList.remove('helppilot-hidden');
+            input.focus();
+          } else {
+            win.classList.add('helppilot-hidden');
+          }
         });
-        const data = await res.json();
 
-        typing.classList.add('hel
+        closeBtn.addEventListener('click', () => {
+          isOpen = false;
+          win.classList.add('helppilot-hidden');
+        });
+
+        async function sendMessage() {
+          const text = input.value.trim();
+          if (!text) return;
+
+          const userDiv = document.createElement('div');
+          userDiv.className = 'helppilot-msg user';
+          userDiv.textContent = text;
+          messages.appendChild(userDiv);
+          input.value = '';
+          messages.scrollTop = messages.scrollHeight;
+
+          typing.classList.remove('helppilot-hidden');
+          messages.scrollTop = messages.scrollHeight;
+
+          try {
+            const res = await fetch('https://helppilotai.vercel.app/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: text })
+            });
+            const data = await res.json();
+
+            typing.classList.add('helppilot-hidden');
+
+            const botDiv = document.createElement('div');
+            botDiv.className = 'helppilot-msg bot';
+            botDiv.textContent = data.reply || "No response received.";
+            messages.appendChild(botDiv);
+            messages.scrollTop = messages.scrollHeight;
+
+          } catch (err) {
+            typing.classList.add('helppilot-hidden');
+            const errDiv = document.createElement('div');
+            errDiv.className = 'helppilot-msg bot';
+            errDiv.textContent = "Connection error. Please try again.";
+            messages.appendChild(errDiv);
+            messages.scrollTop = messages.scrollHeight;
+          }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') sendMessage();
+        });
+      })();
+    </script>
 </body>
 </html>
