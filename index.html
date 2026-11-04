@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelpPilot AI - Dashboard</title>
+    <title>HelpPilot AI - Multi-App Dashboard</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
@@ -54,7 +54,7 @@
             color: #6366f1;
         }
 
-        /* 2. Conversation List Panel */
+        /* 2. Conversation List Panel with App Switcher */
         .conv-list-panel {
             width: 320px;
             background: #0f172a;
@@ -62,14 +62,39 @@
             display: flex;
             flex-direction: column;
         }
+        .app-switcher-box {
+            padding: 16px;
+            border-bottom: 1px solid #1f2937;
+            background: #111827;
+        }
+        .app-switcher-box label {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 6px;
+        }
+        #app-select {
+            width: 100%;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+        }
         .conv-header {
-            padding: 20px;
-            font-size: 18px;
+            padding: 16px 20px;
+            font-size: 15px;
             font-weight: 600;
             border-bottom: 1px solid #1f2937;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            color: #cbd5e1;
         }
         .conv-items {
             flex: 1;
@@ -207,16 +232,24 @@
         <div class="nav-item" title="Settings">⚙️</div>
     </div>
 
-    <!-- Conversation List -->
+    <!-- Conversation List + App Switcher -->
     <div class="conv-list-panel">
+        <div class="app-switcher-box">
+            <label for="app-select">Active Workspace / App</label>
+            <select id="app-select">
+                <option value="app_saas_main">HelpPilot SaaS (Main)</option>
+                <option value="app_shopify_store">Shopify Store Support</option>
+                <option value="app_mobile_app">Mobile App Help Center</option>
+            </select>
+        </div>
         <div class="conv-header">
             <span>Inbox</span>
-            <span style="font-size: 12px; background: #6366f1; padding: 2px 8px; border-radius: 12px;">1 Active</span>
+            <span style="font-size: 11px; background: #6366f1; padding: 2px 8px; border-radius: 12px; color: white;">Live</span>
         </div>
         <div class="conv-items">
             <div class="conv-item">
                 <div class="name">Visitor #DemoUser</div>
-                <div class="preview">what is your refund policy</div>
+                <div class="preview">Test your AI queries here...</div>
             </div>
         </div>
     </div>
@@ -225,13 +258,13 @@
     <div class="chat-workspace">
         <div class="workspace-header">
             <div class="visitor-info">
-                <h3>Visitor #DemoUser</h3>
-                <p>Online via Web Widget</p>
+                <h3 id="active-app-title">HelpPilot SaaS (Main)</h3>
+                <p>AI Assistant Connected & Active</p>
             </div>
         </div>
 
         <div id="chat-messages" class="chat-messages">
-            <div class="msg bot">👋 Hello! How can I help you today? Ask me anything about our products or services.</div>
+            <div class="msg bot">👋 Hello! I am your AI assistant for this app. Ask me anything about our refund policy, pricing plans, or setup!</div>
         </div>
 
         <div id="typing-indicator" class="typing-indicator hidden" style="margin-left: 24px;">
@@ -246,13 +279,13 @@
 
     <!-- Right Customer Details Panel -->
     <div class="details-panel">
-        <h4>Customer Info</h4>
-        <div class="detail-row">App ID: <span>11111111-...</span></div>
-        <div class="detail-row">Channel: <span>Live Widget</span></div>
-        <div class="detail-row">Status: <span style="color: #22c55e;">Connected</span></div>
+        <h4>App Details</h4>
+        <div class="detail-row">App ID: <span id="display-app-id" style="font-size: 11px; color: #a5b4fc;">app_saas_main</span></div>
+        <div class="detail-row">Channel: <span>Web Widget</span></div>
+        <div class="detail-row">Status: <span style="color: #22c55e;">Online</span></div>
         <hr style="border: 0; border-top: 1px solid #1f2937; margin: 20px 0;">
-        <h4>Knowledge Base</h4>
-        <div class="detail-row" style="font-size: 12px; color: #94a3b8;">14-day refund policy loaded in active backend.</div>
+        <h4>Quick Commands</h4>
+        <div class="detail-row" style="font-size: 12px; color: #94a3b8;">Try asking: "What is your refund policy?" or "What are your pricing plans?"</div>
     </div>
 
     <script>
@@ -260,10 +293,32 @@
         const sendBtn = document.getElementById('send-btn');
         const messages = document.getElementById('chat-messages');
         const typing = document.getElementById('typing-indicator');
+        const appSelect = document.getElementById('app-select');
+        const activeAppTitle = document.getElementById('active-app-title');
+        const displayAppId = document.getElementById('display-app-id');
+
+        // Handle App Selection Change
+        appSelect.addEventListener('change', (e) => {
+            const selectedText = e.target.options[e.target.selectedIndex].text;
+            activeAppTitle.textContent = selectedText;
+            displayAppId.textContent = e.target.value;
+            
+            // Add system switch notice in chat
+            const noticeDiv = document.createElement('div');
+            noticeDiv.className = 'msg bot';
+            noticeDiv.style.background = '#111827';
+            noticeDiv.style.color = '#94a3b8';
+            noticeDiv.style.fontSize = '12px';
+            noticeDiv.textContent = `🔄 Switched active context to: ${selectedText}`;
+            messages.appendChild(noticeDiv);
+            messages.scrollTop = messages.scrollHeight;
+        });
 
         async function handleSend() {
             const text = input.value.trim();
             if (!text) return;
+
+            const currentAppId = appSelect.value;
 
             // User Message
             const userDiv = document.createElement('div');
@@ -281,33 +336,4 @@
                 const res = await fetch('https://helppilotai.vercel.app/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text })
-                });
-                const data = await res.json();
-
-                typing.classList.add('hidden');
-
-                // Bot Response
-                const botDiv = document.createElement('div');
-                botDiv.className = 'msg bot';
-                botDiv.textContent = data.reply || "No response received.";
-                messages.appendChild(botDiv);
-                messages.scrollTop = messages.scrollHeight;
-
-            } catch (err) {
-                typing.classList.add('hidden');
-                const errDiv = document.createElement('div');
-                errDiv.className = 'msg bot';
-                errDiv.textContent = "Connection error. Please try again.";
-                messages.appendChild(errDiv);
-                messages.scrollTop = messages.scrollHeight;
-            }
-        }
-
-        sendBtn.addEventListener('click', handleSend);
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleSend();
-        });
-    </script>
-</body>
-</html>
+                    body: JSON.stringify({ message: text, appId: current
