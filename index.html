@@ -3,299 +3,311 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelpPilot AI Widget Test</title>
+    <title>HelpPilot AI - Dashboard</title>
     <style>
-        body { background: #0f172a; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        h1 { font-size: 2.5rem; margin-bottom: 10px; background: linear-gradient(135deg, #a855f7, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        p { color: #94a3b8; font-size: 1.1rem; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: #0b0f19; 
+            color: #f8fafc; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 1. Left Sidebar Navigation */
+        .sidebar {
+            width: 72px;
+            background: #111827;
+            border-right: 1px solid #1f2937;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            gap: 24px;
+        }
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 18px;
+        }
+        .nav-item {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: #1f2937;
+            color: #6366f1;
+        }
+
+        /* 2. Conversation List Panel */
+        .conv-list-panel {
+            width: 320px;
+            background: #0f172a;
+            border-right: 1px solid #1f2937;
+            display: flex;
+            flex-direction: column;
+        }
+        .conv-header {
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            border-bottom: 1px solid #1f2937;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .conv-items {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .conv-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid #1f2937;
+            cursor: pointer;
+            transition: background 0.2s;
+            background: #1e293b;
+        }
+        .conv-item .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #f1f5f9; }
+        .conv-item .preview { font-size: 13px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* 3. Main Chat Workspace */
+        .chat-workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0b0f19;
+        }
+        .workspace-header {
+            padding: 16px 24px;
+            background: #0f172a;
+            border-bottom: 1px solid #1f2937;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .visitor-info h3 { font-size: 16px; font-weight: 600; }
+        .visitor-info p { font-size: 12px; color: #22c55e; display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+        .visitor-info p::before { content: ''; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; display: inline-block; }
+
+        .chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .msg {
+            max-width: 65%;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .msg.bot {
+            background: #1e293b;
+            color: #f1f5f9;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .msg.user {
+            background: #6366f1;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .typing-indicator {
+            padding: 12px 16px;
+            display: flex;
+            gap: 4px;
+            align-self: flex-start;
+            background: #1e293b;
+            border-radius: 12px;
+        }
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            background: #94a3b8;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+
+        .chat-input-area {
+            padding: 20px 24px;
+            background: #0f172a;
+            border-top: 1px solid #1f2937;
+            display: flex;
+            gap: 12px;
+        }
+        #chat-input {
+            flex: 1;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        #chat-input:focus { border-color: #6366f1; }
+        #send-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #send-btn:hover { background: #4f46e5; }
+
+        /* 4. Right Details Panel */
+        .details-panel {
+            width: 280px;
+            background: #0f172a;
+            border-left: 1px solid #1f2937;
+            padding: 24px;
+        }
+        .details-panel h4 { font-size: 14px; color: #94a3b8; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .detail-row { font-size: 13px; margin-bottom: 10px; color: #cbd5e1; }
+        .detail-row span { color: #f8fafc; font-weight: 500; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-    <h1>HelpPilot AI Demo Website</h1>
-    <p>Look at the bottom-right corner of this page to test your embeddable chat widget!</p>
 
-    <!-- HelpPilot AI Widget -->
-    <div id="helppilot-widget-container">
-      <!-- Floating Launcher Button -->
-      <button id="helppilot-launcher" aria-label="Open Chat">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-      </button>
-
-      <!-- Chat Window Box -->
-      <div id="helppilot-window" class="helppilot-hidden">
-        <div class="helppilot-header">
-          <div class="helppilot-title-area">
-            <span class="helppilot-status-dot"></span>
-            <div>
-              <h3>HelpPilot AI</h3>
-              <p>24/7 Support Online</p>
-            </div>
-          </div>
-          <button id="helppilot-close" aria-label="Close Chat">&times;</button>
-        </div>
-
-        <div id="helppilot-messages" class="helppilot-messages">
-          <div class="helppilot-msg bot">
-            👋 Hello! How can I help you today? Ask me anything about our products or services.
-          </div>
-        </div>
-
-        <div id="helppilot-typing" class="helppilot-typing helppilot-hidden">
-          <span></span><span></span><span></span>
-        </div>
-
-        <div class="helppilot-input-area">
-          <input type="text" id="helppilot-input" placeholder="Type your message..." />
-          <button id="helppilot-send">Send</button>
-        </div>
-      </div>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-logo">H</div>
+        <div class="nav-item active" title="Inbox">💬</div>
+        <div class="nav-item" title="Knowledge Base">📚</div>
+        <div class="nav-item" title="Analytics">📊</div>
+        <div class="nav-item" title="Settings">⚙️</div>
     </div>
 
-    <style>
-      #helppilot-widget-container {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        z-index: 999999;
-      }
-      #helppilot-launcher {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-        color: white;
-        border: none;
-        cursor: pointer;
-        box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-      }
-      #helppilot-launcher:hover {
-        transform: scale(1.08);
-        box-shadow: 0 15px 30px rgba(99, 102, 241, 0.6);
-      }
-      #helppilot-window {
-        position: absolute;
-        bottom: 80px;
-        right: 0;
-        width: 380px;
-        height: 520px;
-        background: #0f172a;
-        border-radius: 16px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      }
-      #helppilot-window.helppilot-hidden {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-        pointer-events: none;
-      }
-      .helppilot-header {
-        background: #1e293b;
-        padding: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      }
-      .helppilot-title-area {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .helppilot-status-dot {
-        width: 10px;
-        height: 10px;
-        background: #22c55e;
-        border-radius: 50%;
-        box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
-      }
-      .helppilot-header h3 {
-        margin: 0;
-        color: #f8fafc;
-        font-size: 16px;
-        font-weight: 600;
-      }
-      .helppilot-header p {
-        margin: 0;
-        color: #94a3b8;
-        font-size: 12px;
-      }
-      #helppilot-close {
-        background: none;
-        border: none;
-        color: #94a3b8;
-        font-size: 24px;
-        cursor: pointer;
-      }
-      .helppilot-messages {
-        flex: 1;
-        padding: 16px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .helppilot-msg {
-        max-width: 80%;
-        padding: 12px 16px;
-        border-radius: 12px;
-        font-size: 14px;
-        line-height: 1.5;
-        word-break: break-word;
-      }
-      .helppilot-msg.bot {
-        background: #1e293b;
-        color: #f1f5f9;
-        align-self: flex-start;
-        border-bottom-left-radius: 4px;
-      }
-      .helppilot-msg.user {
-        background: #6366f1;
-        color: white;
-        align-self: flex-end;
-        border-bottom-right-radius: 4px;
-      }
-      .helppilot-typing {
-        padding: 8px 16px;
-        display: flex;
-        gap: 4px;
-        align-self: flex-start;
-        background: #1e293b;
-        border-radius: 12px;
-        margin-left: 16px;
-        margin-bottom: 8px;
-      }
-      .helppilot-typing span {
-        width: 6px;
-        height: 6px;
-        background: #94a3b8;
-        border-radius: 50%;
-        animation: bounce 1.4s infinite ease-in-out both;
-      }
-      .helppilot-typing span:nth-child(1) { animation-delay: -0.32s; }
-      .helppilot-typing span:nth-child(2) { animation-delay: -0.16s; }
-      @keyframes bounce {
-        0%, 80%, 100% { transform: scale(0); }
-        40% { transform: scale(1.0); }
-      }
-      .helppilot-input-area {
-        padding: 12px;
-        background: #1e293b;
-        display: flex;
-        gap: 8px;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-      }
-      #helppilot-input {
-        flex: 1;
-        background: #0f172a;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        padding: 10px 14px;
-        color: white;
-        font-size: 14px;
-        outline: none;
-      }
-      #helppilot-input:focus {
-        border-color: #6366f1;
-      }
-      #helppilot-send {
-        background: #6366f1;
-        color: white;
-        border: none;
-        padding: 0 16px;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
-      }
-      #helppilot-send:hover {
-        background: #4f46e5;
-      }
-      .helppilot-hidden { display: none; }
-    </style>
+    <!-- Conversation List -->
+    <div class="conv-list-panel">
+        <div class="conv-header">
+            <span>Inbox</span>
+            <span style="font-size: 12px; background: #6366f1; padding: 2px 8px; border-radius: 12px;">1 Active</span>
+        </div>
+        <div class="conv-items">
+            <div class="conv-item">
+                <div class="name">Visitor #DemoUser</div>
+                <div class="preview">what is your refund policy</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Chat Workspace -->
+    <div class="chat-workspace">
+        <div class="workspace-header">
+            <div class="visitor-info">
+                <h3>Visitor #DemoUser</h3>
+                <p>Online via Web Widget</p>
+            </div>
+        </div>
+
+        <div id="chat-messages" class="chat-messages">
+            <div class="msg bot">👋 Hello! How can I help you today? Ask me anything about our products or services.</div>
+        </div>
+
+        <div id="typing-indicator" class="typing-indicator hidden" style="margin-left: 24px;">
+            <span></span><span></span><span></span>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type a message to test AI..." />
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <!-- Right Customer Details Panel -->
+    <div class="details-panel">
+        <h4>Customer Info</h4>
+        <div class="detail-row">App ID: <span>11111111-...</span></div>
+        <div class="detail-row">Channel: <span>Live Widget</span></div>
+        <div class="detail-row">Status: <span style="color: #22c55e;">Connected</span></div>
+        <hr style="border: 0; border-top: 1px solid #1f2937; margin: 20px 0;">
+        <h4>Knowledge Base</h4>
+        <div class="detail-row" style="font-size: 12px; color: #94a3b8;">14-day refund policy loaded in active backend.</div>
+    </div>
 
     <script>
-      (function () {
-        const launcher = document.getElementById('helppilot-launcher');
-        const win = document.getElementById('helppilot-window');
-        const closeBtn = document.getElementById('helppilot-close');
-        const sendBtn = document.getElementById('helppilot-send');
-        const input = document.getElementById('helppilot-input');
-        const messages = document.getElementById('helppilot-messages');
-        const typing = document.getElementById('helppilot-typing');
+        const input = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const messages = document.getElementById('chat-messages');
+        const typing = document.getElementById('typing-indicator');
 
-        let isOpen = false;
+        async function handleSend() {
+            const text = input.value.trim();
+            if (!text) return;
 
-        launcher.addEventListener('click', () => {
-          isOpen = !isOpen;
-          if (isOpen) {
-            win.classList.remove('helppilot-hidden');
-            input.focus();
-          } else {
-            win.classList.add('helppilot-hidden');
-          }
-        });
-
-        closeBtn.addEventListener('click', () => {
-          isOpen = false;
-          win.classList.add('helppilot-hidden');
-        });
-
-        async function sendMessage() {
-          const text = input.value.trim();
-          if (!text) return;
-
-          const userDiv = document.createElement('div');
-          userDiv.className = 'helppilot-msg user';
-          userDiv.textContent = text;
-          messages.appendChild(userDiv);
-          input.value = '';
-          messages.scrollTop = messages.scrollHeight;
-
-          typing.classList.remove('helppilot-hidden');
-          messages.scrollTop = messages.scrollHeight;
-
-          try {
-            const res = await fetch('https://helppilotai.vercel.app/api/chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: text })
-            });
-            const data = await res.json();
-
-            typing.classList.add('helppilot-hidden');
-
-            const botDiv = document.createElement('div');
-            botDiv.className = 'helppilot-msg bot';
-            botDiv.textContent = data.reply || "No response received.";
-            messages.appendChild(botDiv);
+            // User Message
+            const userDiv = document.createElement('div');
+            userDiv.className = 'msg user';
+            userDiv.textContent = text;
+            messages.appendChild(userDiv);
+            input.value = '';
             messages.scrollTop = messages.scrollHeight;
 
-          } catch (err) {
-            typing.classList.add('helppilot-hidden');
-            const errDiv = document.createElement('div');
-            errDiv.className = 'helppilot-msg bot';
-            errDiv.textContent = "Connection error. Please try again.";
-            messages.appendChild(errDiv);
+            // Typing Indicator
+            typing.classList.remove('hidden');
             messages.scrollTop = messages.scrollHeight;
-          }
+
+            try {
+                const res = await fetch('https://helppilotai.vercel.app/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await res.json();
+
+                typing.classList.add('hidden');
+
+                // Bot Response
+                const botDiv = document.createElement('div');
+                botDiv.className = 'msg bot';
+                botDiv.textContent = data.reply || "No response received.";
+                messages.appendChild(botDiv);
+                messages.scrollTop = messages.scrollHeight;
+
+            } catch (err) {
+                typing.classList.add('hidden');
+                const errDiv = document.createElement('div');
+                errDiv.className = 'msg bot';
+                errDiv.textContent = "Connection error. Please try again.";
+                messages.appendChild(errDiv);
+                messages.scrollTop = messages.scrollHeight;
+            }
         }
 
-        sendBtn.addEventListener('click', sendMessage);
+        sendBtn.addEventListener('click', handleSend);
         input.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') sendMessage();
+            if (e.key === 'Enter') handleSend();
         });
-      })();
     </script>
 </body>
 </html>
