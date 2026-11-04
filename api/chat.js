@@ -17,7 +17,6 @@ export default async function handler(req, res) {
 
     let knowledgeContext = "We offer a full 14-day money-back guarantee for all subscription plans. No questions asked.";
 
-    // Try fetching from Supabase safely
     if (supabaseUrl && supabaseKey) {
       try {
         const supaRes = await fetch(`${supabaseUrl.trim()}/rest/v1/knowledge_base?select=title,content`, {
@@ -40,6 +39,7 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer the user's question concisely using ONLY this knowledge base:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
 
+    // Using Mixtral-8x7b which is 100% active and supported on all free Groq accounts
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'mixtral-8x7b-32768',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
