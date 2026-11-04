@@ -339,7 +339,7 @@
             <div class="chat-input-area">
                 <div class="input-row">
                     <input type="text" id="chat-input" placeholder="Type a message or internal note..." />
-                    <button class="note-btn" type="button" onclick="handleAddNote()">+ Note</button>
+                    <button class="note-btn" type="button" id="note-btn">+ Note</button>
                     <button id="send-btn" type="button">Send</button>
                 </div>
             </div>
@@ -367,7 +367,7 @@
                     <h2>Knowledge Base Manager</h2>
                     <p style="color: #94a3b8; font-size: 14px; margin-top: 4px;">Train your AI assistant with custom Q&A pairs.</p>
                 </div>
-                <button class="primary-btn" onclick="alert('Add FAQ modal opened!')">+ Add New FAQ</button>
+                <button class="primary-btn" type="button" onclick="alert('Add FAQ modal opened!')">+ Add New FAQ</button>
             </div>
             <table class="kb-table">
                 <thead>
@@ -447,43 +447,107 @@
             element.classList.add('active');
         }
 
-        const input = document.getElementById('chat-input');
-        const sendBtn = document.getElementById('send-btn');
-        const messages = document.getElementById('chat-messages');
-        const typing = document.getElementById('typing-indicator');
-        const appSelect = document.getElementById('app-select');
-        const activeAppTitle = document.getElementById('active-app-title');
-        const displayAppId = document.getElementById('display-app-id');
-        const convBadge = document.getElementById('conv-badge');
-        const convPreview = document.getElementById('conv-preview');
-        const panelSentiment = document.getElementById('panel-sentiment');
-        const assistantStatus = document.getElementById('assistant-status');
+        document.addEventListener("DOMContentLoaded", function() {
+            const input = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-btn');
+            const noteBtn = document.getElementById('note-btn');
+            const messages = document.getElementById('chat-messages');
+            const typing = document.getElementById('typing-indicator');
+            const appSelect = document.getElementById('app-select');
+            const activeAppTitle = document.getElementById('active-app-title');
+            const displayAppId = document.getElementById('display-app-id');
+            const convBadge = document.getElementById('conv-badge');
+            const convPreview = document.getElementById('conv-preview');
+            const panelSentiment = document.getElementById('panel-sentiment');
+            const assistantStatus = document.getElementById('assistant-status');
 
-        appSelect.addEventListener('change', (e) => {
-            const selectedText = e.target.options[e.target.selectedIndex].text;
-            activeAppTitle.textContent = selectedText;
-            displayAppId.textContent = e.target.value;
-            
-            const noticeDiv = document.createElement('div');
-            noticeDiv.className = 'msg bot';
-            noticeDiv.style.background = '#111827';
-            noticeDiv.style.color = '#94a3b8';
-            noticeDiv.style.fontSize = '12px';
-            noticeDiv.textContent = `🔄 Switched active context to: ${selectedText}`;
-            messages.appendChild(noticeDiv);
-            messages.scrollTop = messages.scrollHeight;
-        });
+            if (appSelect) {
+                appSelect.addEventListener('change', (e) => {
+                    const selectedText = e.target.options[e.target.selectedIndex].text;
+                    activeAppTitle.textContent = selectedText;
+                    displayAppId.textContent = e.target.value;
+                    
+                    const noticeDiv = document.createElement('div');
+                    noticeDiv.className = 'msg bot';
+                    noticeDiv.style.background = '#111827';
+                    noticeDiv.style.color = '#94a3b8';
+                    noticeDiv.style.fontSize = '12px';
+                    noticeDiv.textContent = `🔄 Switched active context to: ${selectedText}`;
+                    messages.appendChild(noticeDiv);
+                    messages.scrollTop = messages.scrollHeight;
+                });
+            }
 
-        function handleAddNote() {
-            const text = input.value.trim();
-            if (!text) return;
+            function handleAddNote() {
+                const text = input.value.trim();
+                if (!text) return;
 
-            const noteDiv = document.createElement('div');
-            noteDiv.className = 'msg note';
-            noteDiv.textContent = `🔒 [Internal Note]: ${text}`;
-            messages.appendChild(noteDiv);
-            input.value = '';
-            messages.scrollTop = messages.scrollHeight;
-        }
+                const noteDiv = document.createElement('div');
+                noteDiv.className = 'msg note';
+                noteDiv.textContent = `🔒 [Internal Note]: ${text}`;
+                messages.appendChild(noteDiv);
+                input.value = '';
+                messages.scrollTop = messages.scrollHeight;
+            }
 
-        async function handleSend() {
+            async function handleSend() {
+                const text = input.value.trim();
+                if (!text) return;
+
+                const currentAppId = appSelect ? appSelect.value : 'app_saas_main';
+
+                const userDiv = document.createElement('div');
+                userDiv.className = 'msg user';
+                userDiv.textContent = text;
+                messages.appendChild(userDiv);
+                input.value = '';
+                messages.scrollTop = messages.scrollHeight;
+                convPreview.textContent = text;
+
+                typing.classList.remove('hidden');
+                messages.scrollTop = messages.scrollHeight;
+
+                try {
+                    const res = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: text, appId: currentAppId })
+                    });
+                    const data = await res.json();
+
+                    typing.classList.add('hidden');
+
+                    const botDiv = document.createElement('div');
+                    botDiv.className = 'msg bot';
+                    botDiv.textContent = data.reply || "No response received.";
+                    messages.appendChild(botDiv);
+                    messages.scrollTop = messages.scrollHeight;
+
+                    if (data.sentiment === 'frustrated' || data.escalated) {
+                        convBadge.textContent = 'Needs Human';
+                        convBadge.className = 'badge escalated';
+                        panelSentiment.textContent = 'Frustrated ⚠️';
+                        panelSentiment.style.color = '#ef4444';
+                        assistantStatus.textContent = 'Escalated to Human Agent Queue';
+                        assistantStatus.style.color = '#ef4444';
+                    } else {
+                        convBadge.textContent = 'Active';
+                        convBadge.className = 'badge active';
+                        panelSentiment.textContent = 'Neutral';
+                        panelSentiment.style.color = '#22c55e';
+                        assistantStatus.textContent = 'AI Assistant Connected & Active';
+                        assistantStatus.style.color = '#22c55e';
+                    }
+
+                } catch (err) {
+                    typing.classList.add('hidden');
+                    const errDiv = document.createElement('div');
+                    errDiv.className = 'msg bot';
+                    errDiv.textContent = "Connection error. Please try again.";
+                    messages.appendChild(errDiv);
+                    messages.scrollTop = messages.scrollHeight;
+                }
+            }
+
+            if (sendBtn) sendBtn.addEventListener('click', handleSend);
+            if
