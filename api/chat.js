@@ -1,3 +1,9 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -7,29 +13,40 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { message } = req.body || {};
+    const { message, appId } = req.body || {};
 
-    if (!message) return res.status(200).json({ reply: 'Please enter a message.' });
+    if (!message) return res.status(400).json({ error: 'Message is required' });
 
-    const lowerMsg = message.toLowerCase();
+    // Fallback app_id agar pass na ho
+    const targetAppId = appId || '11111111-1111-1111-1111-111111111111';
 
-    let replyText = "Hello! I am HelpPilot AI. How can I help you today?";
-    
-    if (lowerMsg.includes('refund') || lowerMsg.includes('policy') || lowerMsg.includes('money')) {
-      replyText = "We offer a full 14-day money-back guarantee for all subscription plans. No questions asked.";
-    } else if (lowerMsg.includes('pricing') || lowerMsg.includes('price') || lowerMsg.includes('plan')) {
-      replyText = "HelpPilot AI offers a free plan up to 100 queries, with premium tiers starting at affordable monthly rates.";
-    } else if (lowerMsg.includes('embed') || lowerMsg.includes('widget') || lowerMsg.includes('website')) {
-      replyText = "To embed HelpPilot AI, simply copy the widget HTML snippet and paste it right before the closing </body> tag of your website.";
-    } else if (lowerMsg.includes('24/7') || lowerMsg.includes('support') || lowerMsg.includes('tiers')) {
-      replyText = "Yes! 24/7 priority customer support is fully available across all premium subscription tiers.";
-    } else {
-      replyText = `Thank you for your question about "${message}". Our support team is here 24/7 to help you with any products or services.`;
+    // Fetch FAQs from Supabase knowledge_base table
+    const { data, error } = await supabase
+      .from('knowledge_base')
+      .select('question, answer')
+      .eq('app_id', targetAppId);
+
+    let matchedAnswer = null;
+
+    if (!error && data && data.length > 0) {
+      const lowerMsg = message.toLowerCase();
+      const found = data.find(item => 
+        lowerMsg.includes(item.question.toLowerCase()) ||
+        item.question.toLowerCase().split(' ').some(word => word.length > 3 && lowerMsg.includes(word))
+      );
+      if (found) {
+        matchedAnswer = found.answer;
+      }
     }
 
-    return res.status(200).json({ reply: replyText });
+    // Default fallback agar database mein match na mile
+    if (!matchedAnswer) {
+      matchedAnswer = `Thank you for your question about "${message}". Our support team is available 24/7 to assist you.`;
+    }
+
+    return res.status(200).json({ reply: matchedAnswer });
 
   } catch (err) {
-    return res.status(200).json({ reply: 'Server Exception: ' + err.message });
+    return res.status(500).json({ reply: 'Server Exception: ' + err.message });
   }
 }
