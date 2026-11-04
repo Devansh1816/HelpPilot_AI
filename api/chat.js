@@ -7,7 +7,7 @@ export default async function handler(req, res) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
             return res.status(200).json({
-                reply: "API Key is missing in Vercel environment variables.",
+                reply: "API Key missing in Vercel environment variables.",
                 sentiment: "neutral",
                 escalated: false
             });
@@ -15,20 +15,34 @@ export default async function handler(req, res) {
 
         const prompt = `You are an AI customer support bot for HelpPilot AI. Answer this query directly and helpfully: "${message}"`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        });
+        // Pehle primary model try karenge, agar demand spike aayi toh fallback model chalega
+        const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+        let aiReply = "";
 
-        const data = await response.json();
+        for (const model of models) {
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
 
-        let aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                const data = await response.json();
+                
+                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    aiReply = data.candidates[0].content.parts[0].text;
+                    break; // Sahi response milne par loop exit ho jayega
+                }
+            } catch (e) {
+                // Primary fail hone par agla model try karega
+                continue;
+            }
+        }
 
         if (!aiReply) {
-            aiReply = data.error?.message || "Response generation failed.";
+            aiReply = "High demand right now. We have received your query regarding '" + message + "' and our team is looking into it.";
         }
 
         const lowerMsg = (message || '').toLowerCase();
