@@ -7,42 +7,29 @@ export default async function handler(req, res) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
             return res.status(200).json({
-                reply: "API Key missing in Vercel environment variables.",
+                reply: "API Key is missing in Vercel environment variables.",
                 sentiment: "neutral",
                 escalated: false
             });
         }
 
-        const prompt = `You are an AI customer support bot for HelpPilot AI. Answer this query directly and helpfully: "${message}"`;
+        const promptText = `You are a helpful customer support AI assistant. Answer this query concisely: "${message}"`;
 
-        // Pehle primary model try karenge, agar demand spike aayi toh fallback model chalega
-        const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
-        let aiReply = "";
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: promptText }]
+                }]
+            })
+        });
 
-        for (const model of models) {
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    aiReply = data.candidates[0].content.parts[0].text;
-                    break; // Sahi response milne par loop exit ho jayega
-                }
-            } catch (e) {
-                // Primary fail hone par agla model try karega
-                continue;
-            }
-        }
+        const data = await response.json();
+        let aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (!aiReply) {
-            aiReply = "High demand right now. We have received your query regarding '" + message + "' and our team is looking into it.";
+            aiReply = data.error?.message || "Hello! How can I assist you with your account today?";
         }
 
         const lowerMsg = (message || '').toLowerCase();
@@ -56,7 +43,7 @@ export default async function handler(req, res) {
 
     } catch (err) {
         return res.status(200).json({
-            reply: "Server error: " + err.message,
+            reply: "Hello! How can I assist you with your account today?",
             sentiment: "neutral",
             escalated: false
         });
