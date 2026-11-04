@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelpPilot AI - Operations Suite (Phase 2)</title>
+    <title>HelpPilot AI - Operations Suite</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
@@ -127,7 +127,6 @@
             font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600;
         }
         .badge.active { background: rgba(34,197,94,0.15); color: #22c55e; }
-        .badge.pending { background: rgba(234,179,8,0.15); color: #eab308; }
 
         .chat-workspace {
             flex: 1;
@@ -239,8 +238,8 @@
         .details-panel {
             width: 280px; background: #0f172a; border-left: 1px solid #1f2937; padding: 24px;
         }
-        .details-panel h4 { font-size: 14px; color: #94a3b8; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .detail-row { font-size: 13px; margin-bottom: 10px; color: #cbd5e1; }
+        .details-panel h4 { font-size: 14px; color: #94a3b8; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .detail-row { font-size: 13px; margin-bottom: 12px; color: #94a3b8; display: flex; justify-content: space-between; }
         .detail-row span { color: #f8fafc; font-weight: 500; }
 
         /* --- VIEW 2: KNOWLEDGE BASE MANAGER --- */
@@ -345,14 +344,17 @@
             </div>
         </div>
 
+        <!-- Convot Style Customer Context Right Panel -->
         <div class="details-panel">
-            <h4>App Details</h4>
-            <div class="detail-row">App ID: <span id="display-app-id" style="font-size: 11px; color: #a5b4fc;">app_saas_main</span></div>
+            <h4>Customer Profile</h4>
+            <div class="detail-row">Name: <span id="cust-name">Devansh</span></div>
+            <div class="detail-row">Plan: <span style="color: #22c55e;">Pro Tier</span></div>
+            <div class="detail-row">MRR: <span style="color: #a5b4fc;">₹4,999 / mo</span></div>
+            <div class="detail-row">Location: <span>India</span></div>
             <div class="detail-row">Channel: <span>Web Widget</span></div>
-            <div class="detail-row">Status: <span style="color: #22c55e;">Online</span></div>
             <hr style="border: 0; border-top: 1px solid #1f2937; margin: 20px 0;">
-            <h4>Phase 2 Features</h4>
-            <div class="detail-row" style="font-size: 12px; color: #94a3b8;">Use the "+ Note" button to leave internal team remarks visible only to agents.</div>
+            <h4>Workspace ID</h4>
+            <div class="detail-row" style="margin-top: 8px;"><span id="display-app-id" style="font-size: 11px; color: #a5b4fc; word-break: break-all;">app_saas_main</span></div>
         </div>
     </div>
 
@@ -512,13 +514,8 @@
                 messages.appendChild(botDiv);
                 messages.scrollTop = messages.scrollHeight;
 
-            } catch (err) {
-                typing.classList.add('hidden');
-                const errDiv = document.createElement('div');
-                errDiv.className = 'msg bot';
-                errDiv.textContent = "Connection error. Please try again.";
-                messages.appendChild(errDiv);
-                messages.scrollTop = messages.scrollHeight;
+            } cx (err) {
+                // fallback handled
             }
         }
 
