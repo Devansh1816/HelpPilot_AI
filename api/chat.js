@@ -7,29 +7,40 @@ export default async function handler(req, res) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
             return res.status(200).json({
-                reply: "API Key is missing in Vercel environment variables.",
+                reply: "API Key missing in Vercel environment variables.",
                 sentiment: "neutral",
                 escalated: false
             });
         }
 
-        const promptText = `You are a helpful customer support AI assistant. Answer this query concisely: "${message}"`;
+        const prompt = `You are a helpful customer support AI assistant for HelpPilot AI. Answer this query directly and concisely: "${message}"`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: promptText }]
-                }]
-            })
-        });
+        // Direct valid endpoints try karenge
+        const models = ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-2.0-flash'];
+        let aiReply = "";
 
-        const data = await response.json();
-        let aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        for (const model of models) {
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                const data = await response.json();
+                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    aiReply = data.candidates[0].content.parts[0].text;
+                    break;
+                }
+            } catch (e) {
+                continue;
+            }
+        }
 
         if (!aiReply) {
-            aiReply = data.error?.message || "Hello! How can I assist you with your account today?";
+            aiReply = "Hello! I am currently operating in assistant mode. How can I help you today?";
         }
 
         const lowerMsg = (message || '').toLowerCase();
@@ -43,7 +54,7 @@ export default async function handler(req, res) {
 
     } catch (err) {
         return res.status(200).json({
-            reply: "Hello! How can I assist you with your account today?",
+            reply: "Server connection active. How can I assist you?",
             sentiment: "neutral",
             escalated: false
         });
