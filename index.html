@@ -432,4 +432,104 @@
                 <h3>Embed Script Snippet</h3>
                 <p>Copy and paste this snippet into your website's HTML right before the closing <code>&lt;/body&gt;</code> tag:</p>
                 <div style="background: #111827; padding: 16px; border-radius: 8px; border: 1px solid #334155; font-family: monospace; font-size: 12px; color: #a5b4fc; overflow-x: auto;">
-                    &lt;script src="https://helppilotai.vercel.app/widget.js" data-app
+                    &lt;script src="https://helppilotai.vercel.app/widget.js" data-app-id="app_saas_main" async&gt;&lt;/script&gt;
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchView(viewId, element) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(viewId).classList.add('active-view');
+            element.classList.add('active');
+        }
+
+        const input = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const messages = document.getElementById('chat-messages');
+        const typing = document.getElementById('typing-indicator');
+        const appSelect = document.getElementById('app-select');
+        const activeAppTitle = document.getElementById('active-app-title');
+        const displayAppId = document.getElementById('display-app-id');
+        const convBadge = document.getElementById('conv-badge');
+        const convPreview = document.getElementById('conv-preview');
+        const panelSentiment = document.getElementById('panel-sentiment');
+        const assistantStatus = document.getElementById('assistant-status');
+
+        appSelect.addEventListener('change', (e) => {
+            const selectedText = e.target.options[e.target.selectedIndex].text;
+            activeAppTitle.textContent = selectedText;
+            displayAppId.textContent = e.target.value;
+            
+            const noticeDiv = document.createElement('div');
+            noticeDiv.className = 'msg bot';
+            noticeDiv.style.background = '#111827';
+            noticeDiv.style.color = '#94a3b8';
+            noticeDiv.style.fontSize = '12px';
+            noticeDiv.textContent = `🔄 Switched active context to: ${selectedText}`;
+            messages.appendChild(noticeDiv);
+            messages.scrollTop = messages.scrollHeight;
+        });
+
+        function handleAddNote() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            const noteDiv = document.createElement('div');
+            noteDiv.className = 'msg note';
+            noteDiv.textContent = `🔒 [Internal Note]: ${text}`;
+            messages.appendChild(noteDiv);
+            input.value = '';
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        async function handleSend() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            const currentAppId = appSelect.value;
+
+            const userDiv = document.createElement('div');
+            userDiv.className = 'msg user';
+            userDiv.textContent = text;
+            messages.appendChild(userDiv);
+            input.value = '';
+            messages.scrollTop = messages.scrollHeight;
+            convPreview.textContent = text;
+
+            typing.classList.remove('hidden');
+            messages.scrollTop = messages.scrollHeight;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text, appId: currentAppId })
+                });
+                const data = await res.json();
+
+                typing.classList.add('hidden');
+
+                const botDiv = document.createElement('div');
+                botDiv.className = 'msg bot';
+                botDiv.textContent = data.reply || "No response received.";
+                messages.appendChild(botDiv);
+                messages.scrollTop = messages.scrollHeight;
+
+                if (data.sentiment === 'frustrated' || data.escalated) {
+                    convBadge.textContent = 'Needs Human';
+                    convBadge.className = 'badge escalated';
+                    panelSentiment.textContent = 'Frustrated ⚠️';
+                    panelSentiment.style.color = '#ef4444';
+                    assistantStatus.textContent = 'Escalated to Human Agent Queue';
+                    assistantStatus.style.color = '#ef4444';
+                } else {
+                    convBadge.textContent = 'Active';
+                    convBadge.className = 'badge active';
+                    panelSentiment.textContent = 'Neutral';
+                    panelSentiment.style.color = '#22c55e';
+                    assistantStatus.textContent = 'AI Assistant Connected & Active';
+                    assistantStatus.style.color = '#22c55e';
