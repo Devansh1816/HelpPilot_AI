@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelpPilot AI - Operations Suite</title>
+    <title>HelpPilot AI - Operations Suite (Phase 3)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
@@ -127,6 +127,7 @@
             font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600;
         }
         .badge.active { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .badge.escalated { background: rgba(239,68,68,0.15); color: #ef4444; }
 
         .chat-workspace {
             flex: 1;
@@ -312,9 +313,9 @@
                 <div class="conv-item">
                     <div>
                         <div class="name">Visitor #DemoUser</div>
-                        <div class="preview">Ask any question to test AI...</div>
+                        <div class="preview" id="conv-preview">Ask any question to test AI...</div>
                     </div>
-                    <span class="badge active">Active</span>
+                    <span id="conv-badge" class="badge active">Active</span>
                 </div>
             </div>
         </div>
@@ -323,12 +324,12 @@
             <div class="workspace-header">
                 <div class="visitor-info">
                     <h3 id="active-app-title">HelpPilot SaaS (Main)</h3>
-                    <p>AI Assistant Connected & Active</p>
+                    <p id="assistant-status">AI Assistant Connected & Active</p>
                 </div>
             </div>
 
             <div id="chat-messages" class="chat-messages">
-                <div class="msg bot">👋 Hello! I am your AI customer support assistant. You can test queries or add internal team notes below.</div>
+                <div class="msg bot">👋 Hello! I am your AI customer support assistant. Test queries like "refund policy" or type notes.</div>
             </div>
 
             <div id="typing-indicator" class="typing-indicator hidden" style="margin-left: 24px;">
@@ -347,11 +348,11 @@
         <!-- Convot Style Customer Context Right Panel -->
         <div class="details-panel">
             <h4>Customer Profile</h4>
-            <div class="detail-row">Name: <span id="cust-name">Devansh</span></div>
+            <div class="detail-row">Name: <span>Devansh</span></div>
             <div class="detail-row">Plan: <span style="color: #22c55e;">Pro Tier</span></div>
             <div class="detail-row">MRR: <span style="color: #a5b4fc;">₹4,999 / mo</span></div>
             <div class="detail-row">Location: <span>India</span></div>
-            <div class="detail-row">Channel: <span>Web Widget</span></div>
+            <div class="detail-row">Sentiment: <span id="panel-sentiment" style="color: #22c55e;">Neutral</span></div>
             <hr style="border: 0; border-top: 1px solid #1f2937; margin: 20px 0;">
             <h4>Workspace ID</h4>
             <div class="detail-row" style="margin-top: 8px;"><span id="display-app-id" style="font-size: 11px; color: #a5b4fc; word-break: break-all;">app_saas_main</span></div>
@@ -453,6 +454,10 @@
         const appSelect = document.getElementById('app-select');
         const activeAppTitle = document.getElementById('active-app-title');
         const displayAppId = document.getElementById('display-app-id');
+        const convBadge = document.getElementById('conv-badge');
+        const convPreview = document.getElementById('conv-preview');
+        const panelSentiment = document.getElementById('panel-sentiment');
+        const assistantStatus = document.getElementById('assistant-status');
 
         appSelect.addEventListener('change', (e) => {
             const selectedText = e.target.options[e.target.selectedIndex].text;
@@ -469,7 +474,6 @@
             messages.scrollTop = messages.scrollHeight;
         });
 
-        // Add Internal Team Note Function
         function handleAddNote() {
             const text = input.value.trim();
             if (!text) return;
@@ -494,6 +498,7 @@
             messages.appendChild(userDiv);
             input.value = '';
             messages.scrollTop = messages.scrollHeight;
+            convPreview.textContent = text;
 
             typing.classList.remove('hidden');
             messages.scrollTop = messages.scrollHeight;
@@ -514,8 +519,30 @@
                 messages.appendChild(botDiv);
                 messages.scrollTop = messages.scrollHeight;
 
-            } cx (err) {
-                // fallback handled
+                // Handle Phase 3 Sentiment & Escalation UI Update
+                if (data.sentiment === 'frustrated' || data.escalated) {
+                    convBadge.textContent = 'Needs Human';
+                    convBadge.className = 'badge escalated';
+                    panelSentiment.textContent = 'Frustrated ⚠️';
+                    panelSentiment.style.color = '#ef4444';
+                    assistantStatus.textContent = 'Escalated to Human Agent Queue';
+                    assistantStatus.style.color = '#ef4444';
+                } else {
+                    convBadge.textContent = 'Active';
+                    convBadge.className = 'badge active';
+                    panelSentiment.textContent = 'Neutral';
+                    panelSentiment.style.color = '#22c55e';
+                    assistantStatus.textContent = 'AI Assistant Connected & Active';
+                    assistantStatus.style.color = '#22c55e';
+                }
+
+            } catch (err) {
+                typing.classList.add('hidden');
+                const errDiv = document.createElement('div');
+                errDiv.className = 'msg bot';
+                errDiv.textContent = "Connection error. Please try again.";
+                messages.appendChild(errDiv);
+                messages.scrollTop = messages.scrollHeight;
             }
         }
 
