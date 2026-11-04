@@ -8,60 +8,34 @@ export default async function handler(req, res) {
 
   try {
     const { message } = req.body || {};
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-    const groqApiKey = process.env.GROQ_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
 
     if (!message) return res.status(200).json({ reply: 'Please enter a message.' });
-    if (!groqApiKey) return res.status(200).json({ reply: 'Error: GROQ_API_KEY is missing.' });
+    if (!geminiKey) return res.status(200).json({ reply: 'Error: GEMINI_API_KEY is missing in Vercel settings.' });
 
     let knowledgeContext = "We offer a full 14-day money-back guarantee for all subscription plans. No questions asked.";
 
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const supaRes = await fetch(`${supabaseUrl.trim()}/rest/v1/knowledge_base?select=title,content`, {
-          headers: {
-            'apikey': supabaseKey.trim(),
-            'Authorization': `Bearer ${supabaseKey.trim()}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        if (supaRes.ok) {
-          const docs = await supaRes.json();
-          if (Array.isArray(docs) && docs.length > 0) {
-            knowledgeContext = docs.map(d => `Title: ${d.title}\nContent: ${d.content}`).join("\n\n");
-          }
-        }
-      } catch (e) {
-        console.error("Supabase error:", e);
-      }
-    }
-
-    const systemPrompt = `You are HelpPilot AI, a customer support assistant. Answer the user's question concisely using ONLY this knowledge base:\n\n=== KNOWLEDGE BASE ===\n${knowledgeContext}\n======================\n\nQuestion: "${message}"`;
-
-    // Using Mixtral-8x7b which is 100% active and supported on all free Groq accounts
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    // Gemini API Direct Call (gemini-1.5-flash)
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey.trim()}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey.trim()}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.2
+        contents: [
+          {
+            parts: [
+              { text: `You are HelpPilot AI, a customer support assistant. Answer concisely based on this info:\n\nContext: ${knowledgeContext}\n\nQuestion: ${message}` }
+            ]
+          }
+        ]
       })
     });
 
-    const data = await groqRes.json();
+    const data = await geminiRes.json();
     if (data.error) {
-      return res.status(200).json({ reply: `Groq Error: ${data.error.message}` });
+      return res.status(200).json({ reply: `Gemini Error: ${data.error.message}` });
     }
 
-    const replyText = data.choices?.[0]?.message?.content;
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     return res.status(200).json({ reply: replyText || 'No response generated.' });
 
   } catch (err) {
