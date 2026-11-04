@@ -13,10 +13,10 @@ export default async function handler(req, res) {
     if (!message) return res.status(200).json({ reply: 'Please enter a message.' });
     if (!geminiKey) return res.status(200).json({ reply: 'Error: GEMINI_API_KEY is missing in Vercel settings.' });
 
-    let knowledgeContext = "We offer a full 14-day money-back guarantee for all subscription plans. No questions asked.";
+    const knowledgeContext = "We offer a full 14-day money-back guarantee for all subscription plans. No questions asked.";
 
-    // Gemini API Direct Call (gemini-1.5-flash)
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey.trim()}`, {
+    // Using Gemini v1 endpoint with standard model
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${geminiKey.trim()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
