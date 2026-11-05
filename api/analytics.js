@@ -5,25 +5,18 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
 export default async function handler(req, res) {
     if (req.method === 'GET') {
         try {
-            // 1. Total Conversations count
-            const { count: totalConv, error: convError } = await supabase
+            // Data select karke exact rows nikalte hain
+            const { data, error, count } = await supabase
                 .from('conversations')
-                .select('*', { count: 'exact', head: true });
+                .select('*', { count: 'exact' });
             
-            if (convError) throw convError;
+            if (error) throw error;
 
-            // 2. Human Escalations count (status 'escalated' ya messages ke hisaab se)
-            const { count: escalationsCount, error: escError } = await supabase
-                .from('conversations')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'escalated');
+            const total = count !== null ? count : (data ? data.length : 0);
+            
+            // Escalations count
+            const escalations = data ? data.filter(item => item.status === 'escalated').length : 0;
 
-            if (escError) throw escError;
-
-            const total = totalConv || 0;
-            const escalations = escalationsCount || 0;
-
-            // 3. AI Resolution Rate calculate karna
             let resolutionRate = '100%';
             if (total > 0) {
                 const resolved = total - escalations;
