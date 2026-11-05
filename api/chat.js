@@ -1,10 +1,23 @@
 export default async function handler(req, res) {
+    // CORS Headers Fix
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const { message } = req.body;
     const cleanMsg = (message || '').toLowerCase().trim();
 
-    // 1. FAST RULE-BASED MATCHING (100% Reliable Instant Support Answers)
+    // Fast Knowledge Base Match
     let replyText = "";
     if (cleanMsg.includes('refund') || cleanMsg.includes('money back')) {
         replyText = "We offer a full 14-day money-back guarantee for all subscription plans. You can request a refund anytime from your account dashboard.";
@@ -14,10 +27,8 @@ export default async function handler(req, res) {
         replyText = "Hello! Welcome to HelpPilot AI support. How can I assist you with your workspace today?";
     }
 
-    // Sentiment & Auto-escalation Logic
-    const isFrustrated = cleanMsg.includes('refund') || cleanMsg.includes('angry') || cleanMsg.includes('human') || cleanMsg.includes('worst') || cleanMsg.includes('bad');
+    const isFrustrated = cleanMsg.includes('refund') || cleanMsg.includes('angry') || cleanMsg.includes('human') || cleanMsg.includes('worst');
 
-    // Agar Knowledge Base rule match ho gaya toh direct response return karo
     if (replyText) {
         return res.status(200).json({
             reply: replyText,
@@ -26,7 +37,7 @@ export default async function handler(req, res) {
         });
     }
 
-    // 2. GEMINI API FALLBACK FOR UNKNOWN QUERIES
+    // Gemini API Fallback
     try {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
