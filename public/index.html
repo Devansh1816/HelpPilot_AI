@@ -8,48 +8,111 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; height: 100vh; }
         .sidebar { width: 240px; background: #1e293b; padding: 20px; border-right: 1px solid #334155; }
-        .sidebar h2 { font-size: 18px; color: #6366f1; margin-bottom: 24px; }
-        .nav-btn { width: 100%; text-align: left; background: none; border: none; color: #94a3b8; padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-bottom: 6px; }
+        .sidebar h2 { font-size: 18px; color: #6366f1; margin-bottom: 24px; font-weight: 700; }
+        .nav-btn { width: 100%; text-align: left; background: none; border: none; color: #94a3b8; padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-bottom: 6px; font-weight: 500; }
         .nav-btn.active, .nav-btn:hover { background: #334155; color: #fff; }
         .main { flex: 1; padding: 32px; overflow-y: auto; }
         .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .btn-primary { background: #6366f1; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-primary:hover { background: #4f46e5; }
     </style>
 </head>
 <body>
     <div class="sidebar">
         <h2>HelpPilot AI</h2>
-        <button class="nav-btn active" onclick="switchTab('kb')">Knowledge Base</button>
-        <button class="nav-btn" onclick="switchTab('inbox')">Live Inbox</button>
-        <button class="nav-btn" onclick="switchTab('settings')">Embed Code</button>
+        <button class="nav-btn active" onclick="switchTab('kb', this)">Knowledge Base</button>
+        <button class="nav-btn" onclick="switchTab('inbox', this)">Live Inbox</button>
+        <button class="nav-btn" onclick="switchTab('settings', this)">Embed Code</button>
     </div>
 
     <div class="main">
         <!-- Knowledge Base Tab -->
         <div id="tab-kb">
-            <h1 style="margin-bottom: 16px;">Knowledge Base Manager</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h1 style="font-size: 24px; margin-bottom: 4px;">Knowledge Base Manager</h1>
+                    <p style="color: #94a3b8; font-size: 14px;">Train your AI bot to handle store queries automatically.</p>
+                </div>
+                <button class="btn-primary" onclick="openAddModal()">+ Add New Q&A</button>
+            </div>
+
+            <div id="kb-list" style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="card" style="margin-bottom: 0;">
+                    <div style="color: #6366f1; font-weight: 600; font-size: 14px;">Q: What is the refund policy?</div>
+                    <div style="color: #e2e8f0; font-size: 13.5px; margin-top: 6px;">A: We offer a 14-day money-back guarantee on all plans.</div>
+                </div>
+                <div class="card" style="margin-bottom: 0;">
+                    <div style="color: #6366f1; font-weight: 600; font-size: 14px;">Q: How long does shipping take?</div>
+                    <div style="color: #e2e8f0; font-size: 13.5px; margin-top: 6px;">A: Standard shipping takes 3-5 business days across India.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Inbox Tab -->
+        <div id="tab-inbox" style="display:none;">
+            <h1 style="font-size: 24px; margin-bottom: 16px;">Live Customer Inbox</h1>
             <div class="card">
-                <h3>Store Q&A Rules</h3>
-                <p style="color: #94a3b8; margin-top: 8px;">Train your AI bot to handle refund, shipping, and pricing queries automatically.</p>
+                <p style="color: #94a3b8; font-size: 14px;">No escalated chats currently require human support.</p>
             </div>
         </div>
 
         <!-- Settings / Embed Tab -->
         <div id="tab-settings" style="display:none;">
-            <h1 style="margin-bottom: 16px;">Widget Integration</h1>
+            <h1 style="font-size: 24px; margin-bottom: 16px;">Widget Integration</h1>
             <div class="card">
                 <h3>Copy Embed Code</h3>
-                <p style="color: #94a3b8; font-size: 13px; margin: 8px 0 12px 0;">Paste this script into your store's HTML or Shopify code:</p>
+                <p style="color: #94a3b8; font-size: 13px; margin: 8px 0 12px 0;">Paste this script tag into your e-commerce store code before closing body tag:</p>
                 <textarea style="width: 100%; height: 70px; background: #0f172a; border: 1px solid #334155; color: #38bdf8; padding: 12px; border-radius: 8px; font-family: monospace; outline: none;" readonly>&lt;script src="https://helppilotai.vercel.app/public/widget.js" data-workspace-id="app_saas_main" async&gt;&lt;/script&gt;</textarea>
             </div>
         </div>
     </div>
 
+    <!-- Add Q&A Modal -->
+    <div id="qa-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; align-items: center; justify-content: center;">
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; width: 400px;">
+            <h3 style="color: #fff; margin-top: 0; margin-bottom: 16px;">Add Knowledge Base Entry</h3>
+            
+            <label style="color: #94a3b8; font-size: 12px;">Customer Keyword / Question</label>
+            <input type="text" id="new-q" placeholder="e.g. delivery status" style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid #334155; color: #fff; border-radius: 6px; margin: 6px 0 16px 0; box-sizing: border-box;">
+            
+            <label style="color: #94a3b8; font-size: 12px;">AI Bot Answer</label>
+            <textarea id="new-a" placeholder="e.g. You will receive tracking details via SMS upon shipment." style="width: 100%; height: 80px; padding: 10px; background: #1e293b; border: 1px solid #334155; color: #fff; border-radius: 6px; margin: 6px 0 16px 0; box-sizing: border-box;"></textarea>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="closeAddModal()" style="background: transparent; color: #94a3b8; border: 1px solid #334155; padding: 8px 14px; border-radius: 6px; cursor: pointer;">Cancel</button>
+                <button onclick="saveQA()" class="btn-primary" style="padding: 8px 16px;">Save Rule</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        function switchTab(tabId) {
+        function switchTab(tabId, el) {
             document.getElementById('tab-kb').style.display = tabId === 'kb' ? 'block' : 'none';
+            document.getElementById('tab-inbox').style.display = tabId === 'inbox' ? 'block' : 'none';
             document.getElementById('tab-settings').style.display = tabId === 'settings' ? 'block' : 'none';
+            
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            if(el) el.classList.add('active');
+        }
+
+        function openAddModal() { document.getElementById('qa-modal').style.display = 'flex'; }
+        function closeAddModal() { document.getElementById('qa-modal').style.display = 'none'; }
+
+        function saveQA() {
+            const q = document.getElementById('new-q').value.trim();
+            const a = document.getElementById('new-a').value.trim();
+            if (!q || !a) return alert("Please enter both question and answer.");
+
+            const kbList = document.getElementById('kb-list');
+            const newCard = document.createElement('div');
+            newCard.className = 'card';
+            newCard.style.marginBottom = '0';
+            newCard.innerHTML = `<div style="color: #6366f1; font-weight: 600; font-size: 14px;">Q: ${q}</div><div style="color: #e2e8f0; font-size: 13.5px; margin-top: 6px;">A: ${a}</div>`;
+            
+            kbList.appendChild(newCard);
+            document.getElementById('new-q').value = '';
+            document.getElementById('new-a').value = '';
+            closeAddModal();
         }
     </script>
 </body>
