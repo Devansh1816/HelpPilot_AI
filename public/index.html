@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelpPilot AI - Convot-Style Dashboard</title>
+    <title>HelpPilot AI - Customer Support Chatbot Platform</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background: #0b0f19; color: #f8fafc; display: flex; height: 100vh; overflow: hidden; }
@@ -18,9 +18,10 @@
         .header-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
         
         .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
-        .input-group { display: flex; gap: 12px; margin-bottom: 20px; }
-        .input-field { flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; color: #fff; outline: none; font-size: 14px; }
-        .btn { background: #6366f1; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .input-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .input-field { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; color: #fff; outline: none; font-size: 14px; }
+        .btn { background: #6366f1; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; align-self: flex-start; }
+        .btn:hover { background: #4f46e5; }
         
         .code-box { background: #090d16; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; font-family: monospace; color: #38bdf8; font-size: 13px; word-break: break-all; }
         .view-section { display: none; }
@@ -30,6 +31,12 @@
         .stat-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
         .stat-label { color: #94a3b8; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
         .stat-value { font-size: 28px; font-weight: 700; color: #fff; }
+
+        .pricing-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .plan-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+        .plan-card.featured { border-color: #6366f1; background: #111827; }
+        .price { font-size: 32px; font-weight: 800; color: #fff; }
+        .kb-item { background: #1e293b; padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -37,14 +44,16 @@
     <div class="sidebar">
         <div class="logo">HelpPilot AI</div>
         <ul class="nav-links">
-            <li class="nav-item active" onclick="switchTab('overview')">Overview</li>
-            <li class="nav-item" onclick="switchTab('create')">Get Embed Code</li>
+            <li class="nav-item active" onclick="switchTab('overview')">Analytics</li>
+            <li class="nav-item" onclick="switchTab('kb')">Knowledge Base</li>
+            <li class="nav-item" onclick="switchTab('create')">Widget Setup</li>
+            <li class="nav-item" onclick="switchTab('pricing')">Pricing & Plans</li>
         </ul>
     </div>
 
     <div class="main-content">
         
-        <!-- Tab 1: Overview -->
+        <!-- Analytics Overview -->
         <div id="overview-view" class="view-section active">
             <h1 class="header-title">Analytics Overview</h1>
             <div class="stats-grid">
@@ -57,27 +66,64 @@
                     <div class="stat-value" style="color: #10b981;">91.6%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Escalations</div>
+                    <div class="stat-label">Active Escalations</div>
                     <div class="stat-value" style="color: #f43f5e;">2</div>
                 </div>
             </div>
         </div>
 
-        <!-- Tab 2: Create Workspace & Code -->
+        <!-- Knowledge Base Training -->
+        <div id="kb-view" class="view-section">
+            <h1 class="header-title">Train Chatbot Q&A</h1>
+            <div class="card">
+                <h3 style="margin-bottom: 16px;">Add Custom Store Response</h3>
+                <div class="input-group">
+                    <input type="text" id="kb-q" class="input-field" placeholder="User Question (e.g. What is your return policy?)" />
+                    <textarea id="kb-a" class="input-field" rows="3" placeholder="AI Answer (e.g. We accept returns within 7 days of delivery.)"></textarea>
+                    <button class="btn" onclick="saveQA()">Save to AI Trainer</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 style="margin-bottom: 16px;">Active Trained Responses</h3>
+                <div id="kb-list">
+                    <div class="kb-item"><strong>Q:</strong> Refund policy? <br><strong>A:</strong> We offer a 14-day money-back guarantee.</div>
+                    <div class="kb-item"><strong>Q:</strong> Shipping time? <br><strong>A:</strong> Standard shipping takes 3-5 business days.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Workspace & Embed -->
         <div id="create-view" class="view-section">
             <h1 class="header-title">Generate Chatbot Widget</h1>
-            
             <div class="card">
                 <h3 style="margin-bottom: 12px;">1. Create Workspace ID</h3>
                 <div class="input-group">
-                    <input type="text" id="store-name-input" class="input-field" placeholder="Enter Store Name (e.g. MySuperStore)" />
+                    <input type="text" id="store-name-input" class="input-field" placeholder="Enter Store Name (e.g. DevBuilds)" />
                     <button class="btn" onclick="generateCode()">Generate Snippet</button>
                 </div>
             </div>
-
             <div class="card" id="code-card" style="display: none;">
                 <h3 style="margin-bottom: 12px;">2. Copy Script To Your Website</h3>
                 <div class="code-box" id="generated-snippet"></div>
+            </div>
+        </div>
+
+        <!-- Pricing & Monetization -->
+        <div id="pricing-view" class="view-section">
+            <h1 class="header-title">Subscription Plans</h1>
+            <div class="pricing-grid">
+                <div class="plan-card">
+                    <h2>Starter Plan</h2>
+                    <div class="price">₹0 <span style="font-size: 14px; color: #94a3b8;">/month</span></div>
+                    <p style="color: #cbd5e1; font-size: 14px;">Up to 100 AI Chats/mo, Basic Q&A Trainer, Community Support.</p>
+                    <button class="btn" style="background: #334155;">Active Plan</button>
+                </div>
+                <div class="plan-card featured">
+                    <h2 style="color: #6366f1;">Pro Store Plan</h2>
+                    <div class="price">₹499 <span style="font-size: 14px; color: #94a3b8;">/month</span></div>
+                    <p style="color: #cbd5e1; font-size: 14px;">Unlimited AI Chats, Live Escalation Inbox, Custom Branding, Priority Support.</p>
+                    <button class="btn" onclick="alert('Redirecting to Payment Gateway...')">Upgrade to Pro</button>
+                </div>
             </div>
         </div>
 
@@ -101,6 +147,21 @@
 
             document.getElementById('generated-snippet').textContent = snippet;
             document.getElementById('code-card').style.display = 'block';
+        }
+
+        function saveQA() {
+            const q = document.getElementById('kb-q').value.trim();
+            const a = document.getElementById('kb-a').value.trim();
+            if(!q || !a) return alert('Please enter both question and answer');
+
+            const div = document.createElement('div');
+            div.className = 'kb-item';
+            div.innerHTML = `<strong>Q:</strong> ${q} <br><strong>A:</strong> ${a}`;
+            document.getElementById('kb-list').prepend(div);
+
+            document.getElementById('kb-q').value = '';
+            document.getElementById('kb-a').value = '';
+            alert('Q&A Saved successfully!');
         }
     </script>
 </body>
