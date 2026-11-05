@@ -158,7 +158,7 @@
         </div>
     </div>
 
-    <script>
+  <script>
         function switchTab(tab) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
@@ -183,7 +183,7 @@
             document.getElementById('code-card').style.display = 'block';
         }
 
-   // Page load hote hi Supabase se saved Q&A fetch karne ke liye
+        // Page load hote hi Supabase se saved Q&A fetch karne ke liye
         async function loadKB() {
             try {
                 const res = await fetch('/api/knowledge');
@@ -221,7 +221,7 @@
                     alert('Q&A Saved successfully to Supabase!');
                     document.getElementById('kb-q').value = '';
                     document.getElementById('kb-a').value = '';
-                    loadKB(); // List ko refresh karega
+                    loadKB(); 
                 } else {
                     alert('Error saving data: ' + (result.error || 'Unknown error'));
                 }
@@ -230,26 +230,31 @@
             }
         }
 
-        // Page load hone par run ho
-     async function loadAnalytics() {
+        // Supabase se dynamic analytics fetch karne ke liye
+        async function loadAnalytics() {
             try {
                 const res = await fetch('/api/analytics');
                 const result = await res.json();
                 if (result.success) {
-                    document.querySelectorAll('.stat-value')[0].textContent = result.totalConversations;
+                    const statValues = document.querySelectorAll('.stat-value');
+                    if (statValues.length >= 3) {
+                        statValues[0].textContent = result.totalConversations;
+                        statValues[1].textContent = result.resolutionRate;
+                        statValues[2].textContent = result.escalations;
+                    }
                 }
             } catch (err) {
                 console.error('Error loading analytics:', err);
             }
         }
 
-        // Page load hone par run ho
+        // Page load hone par dono functions run honge
         window.onload = function() {
             loadKB();
             loadAnalytics();
         };
+
         function openPayment() {
-            // Topmate / Cosmofeed / Razorpay link here
             alert('Redirecting to Payment Gateway for ₹499/month Pro Subscription...');
         }
     </script>
