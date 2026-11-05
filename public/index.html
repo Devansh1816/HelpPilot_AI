@@ -231,8 +231,22 @@
         }
 
         // Page load hone par run ho
+     async function loadAnalytics() {
+            try {
+                const res = await fetch('/api/analytics');
+                const result = await res.json();
+                if (result.success) {
+                    document.querySelectorAll('.stat-value')[0].textContent = result.totalConversations;
+                }
+            } catch (err) {
+                console.error('Error loading analytics:', err);
+            }
+        }
+
+        // Page load hone par run ho
         window.onload = function() {
             loadKB();
+            loadAnalytics();
         };
         function openPayment() {
             // Topmate / Cosmofeed / Razorpay link here
