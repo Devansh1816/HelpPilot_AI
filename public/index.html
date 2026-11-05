@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelpPilot AI - Dashboard</title>
+    <title>HelpPilot AI - Convot-Style Dashboard</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background: #0b0f19; color: #f8fafc; display: flex; height: 100vh; overflow: hidden; }
@@ -11,27 +11,25 @@
         .sidebar { width: 250px; background: #0f172a; border-right: 1px solid #1e293b; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
         .logo { font-size: 20px; font-weight: 700; color: #6366f1; letter-spacing: -0.5px; }
         .nav-links { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-        .nav-item { padding: 10px 14px; border-radius: 8px; color: #94a3b8; text-decoration: none; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+        .nav-item { padding: 10px 14px; border-radius: 8px; color: #94a3b8; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
         .nav-item.active, .nav-item:hover { background: #1e293b; color: #fff; }
         
         .main-content { flex: 1; padding: 40px; overflow-y: auto; }
         .header-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
         
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 32px; }
-        .stat-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
-        .stat-label { color: #94a3b8; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
-        .stat-value { font-size: 28px; font-weight: 700; color: #fff; }
-
-        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; }
-        .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+        .input-group { display: flex; gap: 12px; margin-bottom: 20px; }
+        .input-field { flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; color: #fff; outline: none; font-size: 14px; }
+        .btn { background: #6366f1; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
         
-        .code-box { background: #090d16; border: 1px solid #1e293b; border-radius: 8px; padding: 14px; font-family: monospace; color: #38bdf8; font-size: 13px; word-break: break-all; }
+        .code-box { background: #090d16; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; font-family: monospace; color: #38bdf8; font-size: 13px; word-break: break-all; }
         .view-section { display: none; }
         .view-section.active { display: block; }
 
-        .inbox-item { background: #1e293b; border-radius: 8px; padding: 14px; margin-bottom: 10px; border-left: 4px solid #f43f5e; }
-        .inbox-user { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-        .inbox-msg { color: #cbd5e1; font-size: 13px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
+        .stat-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
+        .stat-label { color: #94a3b8; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: #fff; }
     </style>
 </head>
 <body>
@@ -39,17 +37,16 @@
     <div class="sidebar">
         <div class="logo">HelpPilot AI</div>
         <ul class="nav-links">
-            <li class="nav-item active" onclick="switchTab('analytics')">Overview</li>
-            <li class="nav-item" onclick="switchTab('inbox')">Live Inbox</li>
-            <li class="nav-item" onclick="switchTab('embed')">Embed Code</li>
+            <li class="nav-item active" onclick="switchTab('overview')">Overview</li>
+            <li class="nav-item" onclick="switchTab('create')">Get Embed Code</li>
         </ul>
     </div>
 
     <div class="main-content">
         
-        <!-- Tab 1: Overview & Analytics -->
-        <div id="analytics-view" class="view-section active">
-            <h1 class="header-title">Performance Analytics</h1>
+        <!-- Tab 1: Overview -->
+        <div id="overview-view" class="view-section active">
+            <h1 class="header-title">Analytics Overview</h1>
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-label">Total Conversations</div>
@@ -66,29 +63,21 @@
             </div>
         </div>
 
-        <!-- Tab 2: Live Inbox -->
-        <div id="inbox-view" class="view-section">
-            <h1 class="header-title">Live Escalations</h1>
+        <!-- Tab 2: Create Workspace & Code -->
+        <div id="create-view" class="view-section">
+            <h1 class="header-title">Generate Chatbot Widget</h1>
+            
             <div class="card">
-                <div class="inbox-item">
-                    <div class="inbox-user">Store Visitor #1029</div>
-                    <div class="inbox-msg">"I need to talk to a human agent right now about my delayed order."</div>
-                </div>
-                <div class="inbox-item">
-                    <div class="inbox-user">Store Visitor #1041</div>
-                    <div class="inbox-msg">"Bad service, product quality issue."</div>
+                <h3 style="margin-bottom: 12px;">1. Create Workspace ID</h3>
+                <div class="input-group">
+                    <input type="text" id="store-name-input" class="input-field" placeholder="Enter Store Name (e.g. MySuperStore)" />
+                    <button class="btn" onclick="generateCode()">Generate Snippet</button>
                 </div>
             </div>
-        </div>
 
-        <!-- Tab 3: Embed Code -->
-        <div id="embed-view" class="view-section">
-            <h1 class="header-title">Widget Integration</h1>
-            <div class="card">
-                <div class="section-title">Copy Embed Script</div>
-                <div class="code-box">
-                    &lt;script src="https://helppilotai.vercel.app/widget.js" data-workspace-id="app_saas_main" async&gt;&lt;/script&gt;
-                </div>
+            <div class="card" id="code-card" style="display: none;">
+                <h3 style="margin-bottom: 12px;">2. Copy Script To Your Website</h3>
+                <div class="code-box" id="generated-snippet"></div>
             </div>
         </div>
 
@@ -101,6 +90,17 @@
             
             document.getElementById(tab + '-view').classList.add('active');
             event.target.classList.add('active');
+        }
+
+        function generateCode() {
+            const input = document.getElementById('store-name-input').value.trim();
+            if(!input) return alert('Please enter a store name');
+
+            const workspaceId = input.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const snippet = `<script src="https://helppilotai.vercel.app/widget.js" data-workspace-id="${workspaceId}" async><\/script>`;
+
+            document.getElementById('generated-snippet').textContent = snippet;
+            document.getElementById('code-card').style.display = 'block';
         }
     </script>
 </body>
