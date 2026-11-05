@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HelpPilot AI - Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; height: 100vh; }
+        .sidebar { width: 240px; background: #1e293b; padding: 20px; border-right: 1px solid #334155; }
+        .sidebar h2 { font-size: 18px; color: #6366f1; margin-bottom: 24px; }
+        .nav-btn { width: 100%; text-align: left; background: none; border: none; color: #94a3b8; padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-bottom: 6px; }
+        .nav-btn.active, .nav-btn:hover { background: #334155; color: #fff; }
+        .main { flex: 1; padding: 32px; overflow-y: auto; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>HelpPilot AI</h2>
+        <button class="nav-btn active" onclick="switchTab('kb')">Knowledge Base</button>
+        <button class="nav-btn" onclick="switchTab('inbox')">Live Inbox</button>
+        <button class="nav-btn" onclick="switchTab('settings')">Embed Code</button>
+    </div>
+
+    <div class="main">
+        <!-- Knowledge Base Tab -->
+        <div id="tab-kb">
+            <h1 style="margin-bottom: 16px;">Knowledge Base Manager</h1>
+            <div class="card">
+                <h3>Store Q&A Rules</h3>
+                <p style="color: #94a3b8; margin-top: 8px;">Train your AI bot to handle refund, shipping, and pricing queries automatically.</p>
+            </div>
+        </div>
+
+        <!-- Settings / Embed Tab -->
+        <div id="tab-settings" style="display:none;">
+            <h1 style="margin-bottom: 16px;">Widget Integration</h1>
+            <div class="card">
+                <h3>Copy Embed Code</h3>
+                <p style="color: #94a3b8; font-size: 13px; margin: 8px 0 12px 0;">Paste this script into your store's HTML or Shopify code:</p>
+                <textarea style="width: 100%; height: 70px; background: #0f172a; border: 1px solid #334155; color: #38bdf8; padding: 12px; border-radius: 8px; font-family: monospace; outline: none;" readonly>&lt;script src="https://helppilotai.vercel.app/public/widget.js" data-workspace-id="app_saas_main" async&gt;&lt;/script&gt;</textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.getElementById('tab-kb').style.display = tabId === 'kb' ? 'block' : 'none';
+            document.getElementById('tab-settings').style.display = tabId === 'settings' ? 'block' : 'none';
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
