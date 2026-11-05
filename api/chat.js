@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-    // CORS headers
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -21,7 +20,7 @@ export default async function handler(req, res) {
         const { message, workspaceId } = req.body;
         const lowerMsg = (message || '').toLowerCase();
 
-        // 1. Keyword-based Rules & Escalation
+        // 1. Static Keywords
         if (lowerMsg.includes('human') || lowerMsg.includes('agent') || lowerMsg.includes('complaint')) {
             return res.status(200).json({
                 reply: "I have escalated your issue to a human support agent. Our team will contact you shortly!",
@@ -43,41 +42,41 @@ export default async function handler(req, res) {
             });
         }
 
-        // 2. Dynamic Gemini API Fallback
+        // 2. Gemini API Call
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (apiKey) {
-           const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: `You are HelpPilot AI, a helpful customer support assistant for an e-commerce store (Workspace: ${workspaceId || 'General'}). Answer the user concisely and professionally in 2-3 sentences max.\n\nUser Question: ${message}`
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `You are HelpPilot AI, a helpful e-commerce customer support assistant. Answer concisely in 1-2 sentences.\nUser Question: ${message}`
+                            }]
                         }]
-                    }]
-                })
-            });
-
-            const data = await response.json();
-            const aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            if (aiReply) {
-                return res.status(200).json({
-                    reply: aiReply,
-                    escalated: false
+                    })
                 });
+
+                const data = await response.json();
+                const aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (aiReply) {
+                    return res.status(200).json({ reply: aiReply, escalated: false });
+                }
+            } catch (err) {
+                console.error("Gemini Fetch Error:", err);
             }
         }
 
-        // Default response if API key is missing or call fails
+        // Fallback response if key is missing or call fails
         return res.status(200).json({
-            reply: "Hello! Welcome to HelpPilot AI support. How can I assist you today?",
+            reply: "Thanks for reaching out! How can I assist you with your order or store questions today?",
             escalated: false
         });
 
     } catch (error) {
-        console.error("Chat API Error:", error);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 }
