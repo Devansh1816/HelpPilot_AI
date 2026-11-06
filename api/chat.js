@@ -37,12 +37,10 @@ export default async function handler(req, res) {
             isEscalated = true;
         } else if (lowerMsg.includes('refund') || lowerMsg.includes('return')) {
             reply = "We offer a full 14-day money-back guarantee on all orders.";
-            isEscalated = false;
         } else if (lowerMsg.includes('shipping') || lowerMsg.includes('delivery')) {
             reply = "Standard shipping takes 3 to 5 business days.";
-            isEscalated = false;
         } else {
-          // 2. Check Supabase Knowledge Base First (Keyword Match)
+            // 2. Check Supabase Knowledge Base First
             try {
                 const { data: kbData } = await supabase
                     .from('knowledge_base')
@@ -51,9 +49,7 @@ export default async function handler(req, res) {
                 if (kbData && kbData.length > 0) {
                     const matched = kbData.find(item => {
                         const q = (item.question || '').toLowerCase();
-                        // Check if any significant word from user message matches the KB question
-                        const userWords = lowerMsg.split(' ').filter(w => w.length > 3);
-                        return q.includes(lowerMsg) || lowerMsg.includes(q) || userWords.some(word => q.includes(word));
+                        return lowerMsg.includes(q) || q.includes(lowerMsg);
                     });
                     if (matched) {
                         reply = matched.answer;
@@ -62,11 +58,8 @@ export default async function handler(req, res) {
             } catch (kbErr) {
                 console.error("KB Fetch Error:", kbErr);
             }
-            } catch (kbErr) {
-                console.error("KB Fetch Error:", kbErr);
-            }
 
-            // If not found in KB, call Gemini API
+            // 3. Fallback to Gemini if not in KB
             if (!reply) {
                 const apiKey = process.env.GEMINI_API_KEY;
                 if (apiKey) {
@@ -91,13 +84,13 @@ export default async function handler(req, res) {
                 }
             }
 
-            // Fallback if Gemini fails or key missing
+            // 4. Default Fallback
             if (!reply) {
                 reply = "Thanks for reaching out! How can I assist you with your order or store questions today?";
             }
         }
 
-        // 3. Save Conversation / Escalation to Supabase (with message)
+        // 5. Save to Supabase
         try {
             await supabase.from('conversations').insert([
                 {
@@ -117,6 +110,7 @@ export default async function handler(req, res) {
         });
 
     } catch (error) {
+        console.error("Handler Error:", error);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 }
