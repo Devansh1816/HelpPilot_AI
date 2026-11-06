@@ -277,12 +277,9 @@ async function loadRecentEscalations() {
 
         if (data && data.length > 0) {
             const latest = data[0];
-            const alertContainer = document.querySelector('.recent-escalation-alert');
-            if (alertContainer && latest.message) {
-                alertContainer.innerHTML = `
-                    <h3 style="margin-bottom: 12px; font-weight: 600;">Recent Escalation Alerts</h3>
-                    <p style="color: #cbd5e1; font-size: 14px;">Store Visitor #${latest.visitor_id || '1029'} — <em>"${latest.message}"</em></p>
-                `;
+            const alertText = document.getElementById('escalation-alert-text');
+            if (alertText && latest.message) {
+                alertText.innerHTML = `Store Visitor #${latest.visitor_id || '1029'} — <em>"${latest.message}"</em>`;
             }
         }
     } catch (err) {
@@ -290,10 +287,10 @@ async function loadRecentEscalations() {
     }
 }
 
-// Dom load hote hi fetch karo aur har 5 second par auto refresh
+// Initial load + Every 4 seconds auto refresh
 document.addEventListener('DOMContentLoaded', () => {
     loadRecentEscalations();
-    setInterval(loadRecentEscalations, 5000); 
+    setInterval(loadRecentEscalations, 4000);
 });
         async function saveQA() {
             const q = document.getElementById('kb-q').value.trim();
