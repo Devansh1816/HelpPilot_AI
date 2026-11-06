@@ -36,7 +36,7 @@ export default async function handler(req, res) {
             reply = "I have escalated your issue to a human support agent. Our team will contact you shortly!";
             isEscalated = true;
         } else {
-         // 2. Check Supabase Knowledge Base First (Keyword Matched)
+            // 2. Check Supabase Knowledge Base First
             try {
                 const { data: kbData } = await supabase
                     .from('knowledge_base')
@@ -45,18 +45,12 @@ export default async function handler(req, res) {
                 if (kbData && kbData.length > 0) {
                     const matched = kbData.find(item => {
                         const q = (item.question || '').toLowerCase();
-                        // Check if main keywords match
-                        const keywords = q.split(' ').filter(w => w.length > 3);
-                        const matchCount = keywords.filter(word => lowerMsg.includes(word)).length;
-                        return lowerMsg.includes(q) || q.includes(lowerMsg) || (keywords.length > 0 && matchCount >= Math.min(2, keywords.length));
+                        return lowerMsg.includes(q) || q.includes(lowerMsg);
                     });
                     if (matched) {
                         reply = matched.answer;
                     }
                 }
-            } catch (kbErr) {
-                console.error("KB Fetch Error:", kbErr);
-            }
             } catch (kbErr) {
                 console.error("KB Fetch Error:", kbErr);
             }
