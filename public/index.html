@@ -260,32 +260,35 @@ async function loadRecentEscalations() {
     try {
         const { data, error } = await supabase
             .from('conversations')
-            .select('*')
+            .select('message, visitor_id')
             .eq('status', 'escalated')
             .order('created_at', { ascending: false })
             .limit(1);
 
         if (error) {
-            console.error("Error fetching escalations:", error);
+            console.error("Supabase escalation fetch error:", error);
             return;
         }
 
-        if (data && data.length > 0) {
-            const latest = data[0];
-            const alertText = document.getElementById('escalation-alert-text');
-            if (alertText && latest.message) {
-                alertText.innerHTML = `Store Visitor #${latest.visitor_id || '1029'} — <em>"${latest.message}"</em>`;
+        const alertText = document.getElementById('escalation-alert-text');
+        if (alertText) {
+            if (data && data.length > 0 && data[0].message) {
+                const latest = data[0];
+                const visitorId = latest.visitor_id || '1029';
+                alertText.innerHTML = `Store Visitor #${visitorId} — <em>"${latest.message}"</em>`;
+            } else {
+                alertText.innerHTML = `Store Visitor #1029 — <em>"No active escalation messages found."</em>`;
             }
         }
     } catch (err) {
-        console.error("Dashboard Fetch Error:", err);
+        console.error("Dashboard Fetch Catch Error:", err);
     }
 }
 
-// Initial load + Every 4 seconds auto refresh
+// Ensure execution after page load + 3-sec interval polling
 document.addEventListener('DOMContentLoaded', () => {
     loadRecentEscalations();
-    setInterval(loadRecentEscalations, 4000);
+    setInterval(loadRecentEscalations, 3000);
 });
         async function saveQA() {
             const q = document.getElementById('kb-q').value.trim();
