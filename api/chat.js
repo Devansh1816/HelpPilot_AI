@@ -22,113 +22,95 @@ export default async function handler(req, res) {
 
     // 14-Day Free Trial Check
     if (!ADMIN_WORKSPACES.includes(workspaceId)) {
-      const { data: firstConv } = await supabase
-        .from('conversations')
-        .select('created_at')
-        .eq('app_id', workspaceId)
-        .order('created_at', { ascending: true })
-        .limit(1);
+      try {
+        const { data: firstConv } = await supabase
+          .from('conversations')
+          .select('created_at')
+          .eq('app_id', workspaceId)
+          .order('created_at', { ascending: true })
+          .limit(1);
 
-      if (firstConv && firstConv.length > 0) {
-        const startDate = new Date(firstConv[0].created_at);
-        const currentDate = new Date();
-        const diffDays = Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24));
+        if (firstConv && firstConv.length > 0) {
+          const startDate = new Date(firstConv[0].created_at);
+          const currentDate = new Date();
+          const diffDays = Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24));
 
-        if (diffDays > 14) {
-          return res.status(403).json({
-            reply: "Trial Expired: This store's 14-day free trial has ended. Please upgrade to HelpPilot AI Pro.",
-            status: "trial_expired"
-          });
+          if (diffDays > 14) {
+            return res.status(403).json({
+              reply: "Trial Expired: This store's 14-day free trial has ended. Please upgrade to HelpPilot AI Pro.",
+              status: "trial_expired"
+            });
+          }
         }
+      } catch (trialErr) {
+        console.error("Trial check bypassed:", trialErr);
       }
     }
 
     const cleanMsg = (message || '').trim();
     const lowerMsg = cleanMsg.toLowerCase();
     
-    // Human Escalation Check
+    // 1. Human Escalation Check
     const escalationKeywords = ['human', 'agent', 'support', 'complaint', 'person', 'manager', 'real person'];
-    const isEscalation = escalationKeywords.some(kw => lowerMsg.includes(kw));
+    if (escalationKeywords.some(kw => lowerMsg.includes(kw))) {
+      await logChat(workspaceId, visitorId, cleanMsg, 'escalated');
+      return res.status(200).json({
+        reply: "I am routing your query to a human support agent. Please stay on line!",
+        status: "escalated"
+      });
+    }
 
     let reply = "";
-    let status = isEscalation ? 'escalated' : 'active';
 
-    if (isEscalation) {
-      reply = "I am routing your query to a human support agent. Please stay on line!";
-    } else {
-      // 1. Strict Knowledge Base Matching
-      let matchedKB = null;
-      try {
-        const { data: kbData } = await supabase
-          .from('knowledge_base')
-          .select('content, title, app_id');
-
-        if (kbData && kbData.length > 0 && lowerMsg.length > 3) {
-          matchedKB = kbData.find(item => {
-            if (!item.title) return false;
-            const titleLower = item.title.toLowerCase();
-            // Match workspace and exact title or clear phrase match (avoiding false matches like 'hi')
-            const isCorrectWorkspace = (item.app_id === workspaceId || item.app_id === 'default' || item.app_id === 'devansh_admin');
-            return isCorrectWorkspace && (lowerMsg.includes(titleLower) || (titleLower.length >= 5 && lowerMsg.includes(titleLower)));
-          });
-        }
-      } catch (kbErr) {
-        console.error("KB Search Error:", kbErr);
-      }
-
-      if (matchedKB) {
-        reply = matchedKB.content;
-      } else if (GEMINI_API_KEY) {
-        // 2. Dynamic Gemini AI Call
-        try {
-          const aiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      {
-                        text: `You are a helpful customer support AI assistant for an e-commerce store. Respond politely and concisely in 1-2 short sentences in the user's language (English, Hindi, or Hinglish). User Query: ${cleanMsg}`
-                      }
-                    ]
-                  }
-                ]
-              })
-            }
-          );
-          const aiData = await aiRes.json();
-          reply = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-        } catch (e) {
-          console.error("Gemini API Error:", e);
-        }
-      }
-
-      if (!reply) {
-        reply = "Hello! I am your AI assistant. How can I help you with your store orders or queries today?";
-      }
-    }
-
-    // Insert conversation log to Supabase
+    // 2. Fetch Knowledge Base from Supabase
     try {
-      await supabase.from('conversations').insert([{
-        app_id: workspaceId,
-        visitor_id: visitorId || 'visitor_1029',
-        message: cleanMsg,
-        status: status
-      }]);
-    } catch (dbErr) {
-      console.error("DB Log Error:", dbErr);
+      const { data: kbData } = await supabase
+        .from('knowledge_base')
+        .select('content, title');
+
+      if (kbData && kbData.length > 0) {
+        const matched = kbData.find(item => {
+          if (!item.title) return false;
+          const t = item.title.toLowerCase();
+          return lowerMsg.includes(t) || t.includes(lowerMsg);
+        });
+        if (matched) reply = matched.content;
+      }
+    } catch (e) {
+      console.error("KB Query Error:", e);
     }
 
-    return res.status(200).json({ reply, status });
-  } catch (err) {
-    console.error("Handler Exception:", err);
-    return res.status(200).json({
-      reply: "Hi there! How can I assist you with your store today?",
-      status: "active"
-    });
-  }
-}
+    // 3. Fallback Refund Policy Check (If KB query returns nothing)
+    if (!reply && (lowerMsg.includes('refund') || lowerMsg.includes('return') || lowerMsg.includes('policy'))) {
+      reply = "HelpPilot AI offers a free plan up to 100 replies. Our Pro Plan costs Rs 499 per month. We provide a 100% full refund within 7 days of purchase with no questions asked.";
+    }
+
+    // 4. Gemini AI Call (For generic greetings like 'hii', 'hello')
+    if (!reply && GEMINI_API_KEY) {
+      try {
+        const aiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `You are a store assistant. Respond politely in 1 short sentence to: ${cleanMsg}` }] }]
+            })
+          }
+        );
+        const aiData = await aiRes.json();
+        reply = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      } catch (aiErr) {
+        console.error("Gemini Error:", aiErr);
+      }
+    }
+
+    // Default Fallback
+    if (!reply) {
+      reply = "Hello! How can I assist you with your store orders or queries today?";
+    }
+
+    // Log chat to DB
+    await logChat(workspaceId, visitorId, cleanMsg, 'active');
+
+    return res
