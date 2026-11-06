@@ -32,7 +32,7 @@ export default async function handler(req, res) {
         let isEscalated = false;
 
         // 1. Check Human Escalation First
-        if (lowerMsg.includes('human') || lowerMsg.includes('agent') || lowerMsg.includes('complaint') || lowerMsg.includes('talk')) {
+       if (lowerMsg.includes('human') || lowerMsg.includes('agent') || lowerMsg.includes('complaint') || lowerMsg.includes('talk') || lowerMsg.includes('urgent') || lowerMsg.includes('support')) {
             reply = "I have escalated your issue to a human support agent. Our team will contact you shortly!";
             isEscalated = true;
         } else {
