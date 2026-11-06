@@ -36,7 +36,7 @@ export default async function handler(req, res) {
             reply = "I have escalated your issue to a human support agent. Our team will contact you shortly!";
             isEscalated = true;
         } else {
-            // 2. Check Supabase Knowledge Base First
+      // 2. Check Supabase Knowledge Base First
             try {
                 const { data: kbData } = await supabase
                     .from('knowledge_base')
@@ -44,11 +44,11 @@ export default async function handler(req, res) {
                 
                 if (kbData && kbData.length > 0) {
                     const matched = kbData.find(item => {
-                        const q = (item.question || '').toLowerCase();
-                        return lowerMsg.includes(q) || q.includes(lowerMsg);
+                        const t = (item.title || '').toLowerCase();
+                        return lowerMsg.includes(t) || t.includes(lowerMsg);
                     });
                     if (matched) {
-                        reply = matched.answer;
+                        reply = matched.content; // Answer is in 'content' column
                     }
                 }
             } catch (kbErr) {
