@@ -31,14 +31,10 @@ export default async function handler(req, res) {
         let reply = "";
         let isEscalated = false;
 
-        // 1. Static Keywords
-        if (lowerMsg.includes('human') || lowerMsg.includes('agent') || lowerMsg.includes('complaint')) {
+        // 1. Check Human Escalation First
+        if (lowerMsg.includes('human') || lowerMsg.includes('agent') || lowerMsg.includes('complaint') || lowerMsg.includes('talk')) {
             reply = "I have escalated your issue to a human support agent. Our team will contact you shortly!";
             isEscalated = true;
-        } else if (lowerMsg.includes('refund') || lowerMsg.includes('return')) {
-            reply = "We offer a full 14-day money-back guarantee on all orders.";
-        } else if (lowerMsg.includes('shipping') || lowerMsg.includes('delivery')) {
-            reply = "Standard shipping takes 3 to 5 business days.";
         } else {
             // 2. Check Supabase Knowledge Base First
             try {
@@ -59,7 +55,7 @@ export default async function handler(req, res) {
                 console.error("KB Fetch Error:", kbErr);
             }
 
-            // 3. Fallback to Gemini if not in KB
+            // 3. Fallback to Gemini API if not in KB
             if (!reply) {
                 const apiKey = process.env.GEMINI_API_KEY;
                 if (apiKey) {
