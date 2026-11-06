@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ymvhnwcteeonvwhhoksd.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY_HERE'; // Backup fallback
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AQ.Ab8RN6LiFN3YYxK1ooBLgkl32ZY1vcPlGkowmdMMznCNpqFe7Q';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
