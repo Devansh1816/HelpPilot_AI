@@ -43,8 +43,11 @@ export default async function handler(req, res) {
       }
     }
 
-    const lowerMsg = (message || '').trim().toLowerCase();
-    const escalationKeywords = ['human', 'agent', 'support', 'complaint', 'person', 'manager'];
+    const cleanMsg = (message || '').trim();
+    const lowerMsg = cleanMsg.toLowerCase();
+    
+    // Human Escalation Check
+    const escalationKeywords = ['human', 'agent', 'support', 'complaint', 'person', 'manager', 'real person'];
     const isEscalation = escalationKeywords.some(kw => lowerMsg.includes(kw));
 
     let reply = "";
@@ -53,58 +56,78 @@ export default async function handler(req, res) {
     if (isEscalation) {
       reply = "I am routing your query to a human support agent. Please stay on line!";
     } else {
-      // 1. Fetch Knowledge Base Entries
-      const { data: kbData } = await supabase
-        .from('knowledge_base')
-        .select('content, title, app_id');
-
+      // 1. Strict Knowledge Base Matching
       let matchedKB = null;
-      if (kbData && kbData.length > 0) {
-        matchedKB = kbData.find(item => {
-          if (!item.title) return false;
-          const titleLower = item.title.toLowerCase();
-          const words = lowerMsg.split(' ');
-          return words.some(w => w.length > 2 && titleLower.includes(w)) || lowerMsg.includes(titleLower) || titleLower.includes(lowerMsg);
-        });
+      try {
+        const { data: kbData } = await supabase
+          .from('knowledge_base')
+          .select('content, title, app_id');
+
+        if (kbData && kbData.length > 0 && lowerMsg.length > 3) {
+          matchedKB = kbData.find(item => {
+            if (!item.title) return false;
+            const titleLower = item.title.toLowerCase();
+            // Match workspace and exact title or clear phrase match (avoiding false matches like 'hi')
+            const isCorrectWorkspace = (item.app_id === workspaceId || item.app_id === 'default' || item.app_id === 'devansh_admin');
+            return isCorrectWorkspace && (lowerMsg.includes(titleLower) || (titleLower.length >= 5 && lowerMsg.includes(titleLower)));
+          });
+        }
+      } catch (kbErr) {
+        console.error("KB Search Error:", kbErr);
       }
 
       if (matchedKB) {
         reply = matchedKB.content;
       } else if (GEMINI_API_KEY) {
-        // 2. Direct Gemini 1.5 Flash Call
+        // 2. Dynamic Gemini AI Call
         try {
-          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: `You are an AI customer support bot for an e-commerce store. Answer helpful and short in 1-2 sentences: ${message}` }] }]
-            })
-          });
+          const aiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      {
+                        text: `You are a helpful customer support AI assistant for an e-commerce store. Respond politely and concisely in 1-2 short sentences in the user's language (English, Hindi, or Hinglish). User Query: ${cleanMsg}`
+                      }
+                    ]
+                  }
+                ]
+              })
+            }
+          );
           const aiData = await aiRes.json();
           reply = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
         } catch (e) {
-          console.error("AI Fetch Error:", e);
+          console.error("Gemini API Error:", e);
         }
       }
 
       if (!reply) {
-        reply = "We offer a 14-day return and refund policy on all items. How else can I help you today?";
+        reply = "Hello! I am your AI assistant. How can I help you with your store orders or queries today?";
       }
     }
 
-    // Save Log to Supabase
-    await supabase.from('conversations').insert([{
-      app_id: workspaceId,
-      visitor_id: visitorId || 'visitor_1029',
-      message: message,
-      status: status
-    }]);
+    // Insert conversation log to Supabase
+    try {
+      await supabase.from('conversations').insert([{
+        app_id: workspaceId,
+        visitor_id: visitorId || 'visitor_1029',
+        message: cleanMsg,
+        status: status
+      }]);
+    } catch (dbErr) {
+      console.error("DB Log Error:", dbErr);
+    }
 
     return res.status(200).json({ reply, status });
   } catch (err) {
     console.error("Handler Exception:", err);
     return res.status(200).json({
-      reply: "Thank you for reaching out! A support team member will assist you shortly.",
+      reply: "Hi there! How can I assist you with your store today?",
       status: "active"
     });
   }
