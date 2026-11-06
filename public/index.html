@@ -258,13 +258,14 @@
             }
         }
 
-    async function loadRecentEscalations() {
+async function loadRecentEscalations() {
     try {
         const { data, error } = await supabase
             .from('conversations')
             .select('*')
             .eq('status', 'escalated')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(1);
 
         if (error) {
             console.error("Error fetching escalations:", error);
@@ -272,13 +273,15 @@
         }
 
         if (data && data.length > 0) {
-            // Find the first row that actually has a message
-            const latest = data.find(item => item.message && item.message.trim() !== '') || data[0];
+            const latest = data[0];
             const alertContainer = document.querySelector('.recent-escalation-alert');
             if (alertContainer) {
+                const messageText = latest.message || 'Human agent requested';
+                const visitorId = latest.visitor_id || 'visitor_1029';
+                
                 alertContainer.innerHTML = `
-                    <div style="font-weight: 600; margin-bottom: 4px;">Recent Escalation Alerts</div>
-                    <div>Store Visitor #${latest.visitor_id || '1029'} — "${latest.message || 'Human agent requested'}"</div>
+                    <h3 style="margin-bottom: 12px; font-weight: 600;">Recent Escalation Alerts</h3>
+                    <p style="color: #cbd5e1; font-size: 14px;">Store Visitor #${visitorId} — <em>"${messageText}"</em></p>
                 `;
             }
         }
