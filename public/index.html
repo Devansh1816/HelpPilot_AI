@@ -287,7 +287,9 @@
     }
 }
 
-loadRecentEscalations();
+document.addEventListener('DOMContentLoaded', () => {
+    loadRecentEscalations();
+});
         async function saveQA() {
             const q = document.getElementById('kb-q').value.trim();
             const a = document.getElementById('kb-a').value.trim();
