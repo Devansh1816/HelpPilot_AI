@@ -50,6 +50,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            cursor: pointer;
         }
 
         .logo span { color: var(--accent); }
@@ -65,6 +66,7 @@
             text-decoration: none;
             font-size: 14px;
             transition: 0.2s;
+            cursor: pointer;
         }
 
         .nav-links a:hover { color: #fff; }
@@ -118,6 +120,11 @@
             font-size: 15px;
             outline: none;
             box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            transition: 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent);
         }
 
         .search-icon {
@@ -192,6 +199,7 @@
         .faq-item {
             padding: 18px 0;
             border-bottom: 1px solid var(--border);
+            cursor: pointer;
         }
 
         .faq-item:last-child {
@@ -203,6 +211,9 @@
             font-size: 15px;
             margin-bottom: 6px;
             color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .faq-answer {
@@ -223,11 +234,11 @@
 
     <!-- NAVBAR -->
     <nav>
-        <div class="logo">🎧 HelpPilot<span>Care</span></div>
+        <div class="logo" onclick="window.location.reload()">🎧 HelpPilot<span>Care</span></div>
         <ul class="nav-links">
-            <li><a href="#">Help Center</a></li>
-            <li><a href="#">Track Order</a></li>
-            <li><a href="#">Submit Ticket</a></li>
+            <li><a onclick="triggerChatQuery('Help Center')">Help Center</a></li>
+            <li><a onclick="triggerChatQuery('Track my order')">Track Order</a></li>
+            <li><a onclick="triggerChatQuery('human agent')">Submit Ticket</a></li>
         </ul>
     </nav>
 
@@ -239,7 +250,7 @@
         
         <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" placeholder="Search for answers, refund policy, order status...">
+            <input type="text" id="main-search-input" placeholder="Type query & press Enter to ask AI (e.g., refund policy)..." onkeypress="handleSearch(event)">
         </div>
     </div>
 
@@ -248,25 +259,25 @@
         
         <div class="section-title">Browse Help Topics</div>
         <div class="topics-grid">
-            <div class="topic-card">
+            <div class="topic-card" onclick="triggerChatQuery('Order status and shipping updates')">
                 <div class="topic-icon">📦</div>
                 <div class="topic-title">Orders & Shipping</div>
                 <div class="topic-desc">Track packages, change delivery addresses, or check shipping timelines.</div>
             </div>
 
-            <div class="topic-card">
+            <div class="topic-card" onclick="triggerChatQuery('refund policy')">
                 <div class="topic-icon">💳</div>
                 <div class="topic-title">Refunds & Returns</div>
                 <div class="topic-desc">View our 14-day money-back policy and initiate easy product returns.</div>
             </div>
 
-            <div class="topic-card">
+            <div class="topic-card" onclick="triggerChatQuery('Account and subscription settings')">
                 <div class="topic-icon">🔐</div>
                 <div class="topic-title">Account & Security</div>
                 <div class="topic-desc">Manage account credentials, active subscriptions, and billing profiles.</div>
             </div>
 
-            <div class="topic-card">
+            <div class="topic-card" onclick="triggerChatQuery('human agent')">
                 <div class="topic-icon">👤</div>
                 <div class="topic-title">Human Escalation</div>
                 <div class="topic-desc">Need personal help? Connect directly with a human customer care agent.</div>
@@ -275,16 +286,16 @@
 
         <div class="section-title">Frequently Asked Questions</div>
         <div class="faq-list">
-            <div class="faq-item">
-                <div class="faq-question">What is your refund policy?</div>
+            <div class="faq-item" onclick="triggerChatQuery('refund policy')">
+                <div class="faq-question">What is your refund policy? <span>💬 Ask Bot</span></div>
                 <div class="faq-answer">We offer a full 14-day money-back guarantee for all orders and subscription plans without any hassle.</div>
             </div>
-            <div class="faq-item">
-                <div class="faq-question">How does the HelpPilot AI widget work?</div>
+            <div class="faq-item" onclick="triggerChatQuery('How does widget work')">
+                <div class="faq-question">How does the HelpPilot AI widget work? <span>💬 Ask Bot</span></div>
                 <div class="faq-answer">The AI bot instantly answers visitor questions using your trained Knowledge Base or routes complex issues to human support.</div>
             </div>
-            <div class="faq-item">
-                <div class="faq-question">Can I talk to a real human support agent?</div>
+            <div class="faq-item" onclick="triggerChatQuery('human agent')">
+                <div class="faq-question">Can I talk to a real human support agent? <span>💬 Ask Bot</span></div>
                 <div class="faq-answer">Yes! Simply type "human agent" in the chat widget to trigger live support routing.</div>
             </div>
         </div>
@@ -297,5 +308,35 @@
 
     <!-- HELPPILOT AI CHAT WIDGET EMBED -->
     <script src="https://helppilotai.vercel.app/widget.js" data-app-id="devansh_admin"></script>
+
+    <script>
+        function triggerChatQuery(queryText) {
+            // Open chatbot container if closed
+            const widgetFrame = document.getElementById('helppilot-widget-iframe') || document.querySelector('.helppilot-chat-box');
+            const widgetLauncher = document.getElementById('helppilot-widget-button') || document.querySelector('.helppilot-launcher');
+            
+            if (widgetLauncher) widgetLauncher.click();
+
+            // Auto-send query inside chat input
+            setTimeout(() => {
+                const chatInput = document.getElementById('helppilot-input') || document.querySelector('#helppilot-widget-iframe')?.contentWindow?.document?.querySelector('input');
+                const sendBtn = document.getElementById('helppilot-send-btn') || document.querySelector('#helppilot-widget-iframe')?.contentWindow?.document?.querySelector('button');
+
+                if (chatInput && sendBtn) {
+                    chatInput.value = queryText;
+                    sendBtn.click();
+                }
+            }, 300);
+        }
+
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                const val = document.getElementById('main-search-input').value;
+                if (val.trim() !== '') {
+                    triggerChatQuery(val);
+                }
+            }
+        }
+    </script>
 </body>
 </html>
