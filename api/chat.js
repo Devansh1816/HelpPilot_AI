@@ -70,13 +70,13 @@ export default async function handler(req, res) {
         }
 
         // 3. Save Conversation / Escalation to Supabase
+     // 3. Save Conversation / Escalation to Supabase
         try {
             await supabase.from('conversations').insert([
                 {
-                    workspace_id: workspaceId || 'default',
-                    message: message,
-                    reply: reply,
-                    status: isEscalated ? 'escalated' : 'resolved'
+                    app_id: workspaceId || 'default',
+                    visitor_id: 'visitor_1029',
+                    status: isEscalated ? 'escalated' : 'active'
                 }
             ]);
         } catch (dbErr) {
