@@ -309,34 +309,53 @@
     <!-- HELPPILOT AI CHAT WIDGET EMBED -->
     <script src="https://helppilotai.vercel.app/widget.js" data-app-id="devansh_admin"></script>
 
-    <script>
-        function triggerChatQuery(queryText) {
-            // Open chatbot container if closed
-            const widgetFrame = document.getElementById('helppilot-widget-iframe') || document.querySelector('.helppilot-chat-box');
-            const widgetLauncher = document.getElementById('helppilot-widget-button') || document.querySelector('.helppilot-launcher');
-            
-            if (widgetLauncher) widgetLauncher.click();
-
-            // Auto-send query inside chat input
-            setTimeout(() => {
-                const chatInput = document.getElementById('helppilot-input') || document.querySelector('#helppilot-widget-iframe')?.contentWindow?.document?.querySelector('input');
-                const sendBtn = document.getElementById('helppilot-send-btn') || document.querySelector('#helppilot-widget-iframe')?.contentWindow?.document?.querySelector('button');
-
-                if (chatInput && sendBtn) {
-                    chatInput.value = queryText;
-                    sendBtn.click();
-                }
-            }, 300);
+<script>
+    function triggerChatQuery(queryText) {
+        // 1. Check if HelpPilot global launcher function exists or toggle launcher button
+        const launcherBtn = document.getElementById('helppilot-widget-button') || 
+                            document.querySelector('.helppilot-launcher') || 
+                            document.querySelector('[data-helppilot-launcher]');
+        
+        // Open Widget Window if closed
+        if (window.HelpPilotAI && typeof window.HelpPilotAI.open === 'function') {
+            window.HelpPilotAI.open();
+        } else if (launcherBtn) {
+            launcherBtn.click();
         }
 
-        function handleSearch(event) {
-            if (event.key === 'Enter') {
-                const val = document.getElementById('main-search-input').value;
-                if (val.trim() !== '') {
-                    triggerChatQuery(val);
-                }
+        // 2. Retry loop to find input box inside widget or embedded iframe
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        const interval = setInterval(() => {
+            attempts++;
+            
+            // Try accessing standard DOM or iframe DOM
+            let iframe = document.getElementById('helppilot-widget-iframe');
+            let doc = iframe ? (iframe.contentDocument || iframe.contentWindow?.document) : document;
+            
+            let chatInput = doc ? (doc.getElementById('helppilot-input') || doc.querySelector('input[type="text"]') || doc.querySelector('.helppilot-input')) : null;
+            let sendBtn = doc ? (doc.getElementById('helppilot-send-btn') || doc.querySelector('button[type="submit"]') || doc.querySelector('.helppilot-send')) : null;
+
+            if (chatInput && sendBtn) {
+                chatInput.value = queryText;
+                chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                sendBtn.click();
+                clearInterval(interval);
+            } else if (attempts >= maxAttempts) {
+                clearInterval(interval);
+            }
+        }, 200);
+    }
+
+    function handleSearch(event) {
+        if (event.key === 'Enter') {
+            const val = document.getElementById('main-search-input').value;
+            if (val.trim() !== '') {
+                triggerChatQuery(val);
             }
         }
-    </script>
+    }
+</script>
 </body>
 </html>
