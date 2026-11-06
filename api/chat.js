@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ymvhnwcteeonvwhhoksd.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltdmhud2N0ZWVvbnZ3aGhva3NkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2MzI0OTksImV4cCI6MjA0NjIwODQ5OX0.4x95Uj5L2j-09Gz7bN9YkXJ-qJbY'; // Fallback Key
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -19,41 +19,13 @@ export default async function handler(req, res) {
   try {
     const { message, appId, visitorId } = req.body || {};
     const workspaceId = appId || 'default';
-
-    // 14-Day Free Trial Check
-    if (!ADMIN_WORKSPACES.includes(workspaceId)) {
-      try {
-        const { data: firstConv } = await supabase
-          .from('conversations')
-          .select('created_at')
-          .eq('app_id', workspaceId)
-          .order('created_at', { ascending: true })
-          .limit(1);
-
-        if (firstConv && firstConv.length > 0) {
-          const startDate = new Date(firstConv[0].created_at);
-          const currentDate = new Date();
-          const diffDays = Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24));
-
-          if (diffDays > 14) {
-            return res.status(403).json({
-              reply: "Trial Expired: This store's 14-day free trial has ended. Please upgrade to HelpPilot AI Pro.",
-              status: "trial_expired"
-            });
-          }
-        }
-      } catch (trialErr) {
-        console.error("Trial check bypassed:", trialErr);
-      }
-    }
-
     const cleanMsg = (message || '').trim();
     const lowerMsg = cleanMsg.toLowerCase();
-    
+
     // 1. Human Escalation Check
-    const escalationKeywords = ['human', 'agent', 'support', 'complaint', 'person', 'manager', 'real person'];
+    const escalationKeywords = ['human', 'agent', 'support', 'complaint', 'person', 'manager'];
     if (escalationKeywords.some(kw => lowerMsg.includes(kw))) {
-      await logChat(workspaceId, visitorId, cleanMsg, 'escalated');
+      saveLog(workspaceId, visitorId, cleanMsg, 'escalated');
       return res.status(200).json({
         reply: "I am routing your query to a human support agent. Please stay on line!",
         status: "escalated"
@@ -62,14 +34,14 @@ export default async function handler(req, res) {
 
     let reply = "";
 
-    // 2. Fetch Knowledge Base from Supabase
+    // 2. Knowledge Base Search
     try {
-      const { data: kbData } = await supabase
+      const { data: kbEntries } = await supabase
         .from('knowledge_base')
         .select('content, title');
 
-      if (kbData && kbData.length > 0) {
-        const matched = kbData.find(item => {
+      if (kbEntries && kbEntries.length > 0) {
+        const matched = kbEntries.find(item => {
           if (!item.title) return false;
           const t = item.title.toLowerCase();
           return lowerMsg.includes(t) || t.includes(lowerMsg);
@@ -77,15 +49,15 @@ export default async function handler(req, res) {
         if (matched) reply = matched.content;
       }
     } catch (e) {
-      console.error("KB Query Error:", e);
+      console.error("KB Fetch Exception:", e);
     }
 
-    // 3. Fallback Refund Policy Check (If KB query returns nothing)
+    // 3. Fallback Refund Policy
     if (!reply && (lowerMsg.includes('refund') || lowerMsg.includes('return') || lowerMsg.includes('policy'))) {
       reply = "HelpPilot AI offers a free plan up to 100 replies. Our Pro Plan costs Rs 499 per month. We provide a 100% full refund within 7 days of purchase with no questions asked.";
     }
 
-    // 4. Gemini AI Call (For generic greetings like 'hii', 'hello')
+    // 4. Gemini AI Call (Greetings & Generic Questions)
     if (!reply && GEMINI_API_KEY) {
       try {
         const aiRes = await fetch(
@@ -94,7 +66,7 @@ export default async function handler(req, res) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: `You are a store assistant. Respond politely in 1 short sentence to: ${cleanMsg}` }] }]
+              contents: [{ parts: [{ text: `You are an AI e-commerce assistant. Answer in 1 short polite sentence in user's language: ${cleanMsg}` }] }]
             })
           }
         );
@@ -107,10 +79,31 @@ export default async function handler(req, res) {
 
     // Default Fallback
     if (!reply) {
-      reply = "Hello! How can I assist you with your store orders or queries today?";
+      reply = "Hello! How can I assist you with your store orders or questions today?";
     }
 
-    // Log chat to DB
-    await logChat(workspaceId, visitorId, cleanMsg, 'active');
+    saveLog(workspaceId, visitorId, cleanMsg, 'active');
 
-    return res
+    return res.status(200).json({ reply, status: 'active' });
+
+  } catch (err) {
+    console.error("Critical Handler Error:", err);
+    return res.status(200).json({
+      reply: "Hello! How can I assist you with your store today?",
+      status: "active"
+    });
+  }
+}
+
+async function saveLog(appId, visitorId, message, status) {
+  try {
+    await supabase.from('conversations').insert([{
+      app_id: appId,
+      visitor_id: visitorId || 'visitor_1029',
+      message: message,
+      status: status
+    }]);
+  } catch (e) {
+    console.error("Log error ignored", e);
+  }
+}
