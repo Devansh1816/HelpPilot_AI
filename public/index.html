@@ -258,6 +258,37 @@
             }
         }
 
+      async function loadRecentEscalations() {
+    try {
+        const { data, error } = await supabase
+            .from('conversations')
+            .select('*')
+            .eq('status', 'escalated')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (error) {
+            console.error("Error fetching escalations:", error);
+            return;
+        }
+
+        if (data && data.length > 0) {
+            const latest = data[0];
+            const alertContainer = document.querySelector('.recent-escalation-alert');
+            if (alertContainer) {
+                alertContainer.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 4px;">Recent Escalation Alerts</div>
+                    <div>Store Visitor #${latest.visitor_id || '1029'} — "${latest.message}"</div>
+                `;
+            }
+        }
+    } catch (err) {
+        console.error("Dashboard Fetch Error:", err);
+    }
+}
+
+// Page load par call karne ke liye
+loadRecentEscalations();
         async function saveQA() {
             const q = document.getElementById('kb-q').value.trim();
             const a = document.getElementById('kb-a').value.trim();
