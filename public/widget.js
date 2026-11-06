@@ -59,8 +59,8 @@
     const inputField = box.querySelector('#hp-input-field');
     const sendBtn = box.querySelector('#hp-send-btn');
 
-    async function sendMsg() {
-        const text = inputField.value.trim();
+    async function sendMsg(textToSend) {
+        const text = textToSend || inputField.value.trim();
         if (!text) return;
 
         const uDiv = document.createElement('div');
@@ -74,7 +74,7 @@
             const res = await fetch(`${backendUrl}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, appId: 'app_saas_main' })
+                body: JSON.stringify({ message: text, appId: 'devansh_admin' })
             });
             const data = await res.json();
             const bDiv = document.createElement('div');
@@ -90,6 +90,14 @@
         }
     }
 
-    sendBtn.onclick = sendMsg;
+    sendBtn.onclick = () => sendMsg();
     inputField.onkeypress = (e) => { if (e.key === 'Enter') sendMsg(); };
+
+    // PostMessage Listener for Test Page Search Box and Cards
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'HELPPILOT_SEND_QUERY') {
+            box.style.display = 'flex';
+            sendMsg(event.data.query);
+        }
+    });
 })();
