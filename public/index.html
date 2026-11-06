@@ -180,15 +180,15 @@
         </div>
     </div>
 
-<!-- Supabase CDN Link -->
+<!-- Supabase JS Client library -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-    // Initialize Supabase Client for Frontend
+    // Exact Project URL from your Supabase Dashboard
     const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoksd.supabase.co'; 
-    const SUPABASE_ANON_KEY = 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi'; // Apni real Supabase Anon Key yahan lagao
+    const SUPABASE_ANON_KEY = 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi'; // Wahi Publishable Key Paste Karo
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let isSignUpMode = false;
 
@@ -261,7 +261,7 @@
 
     async function loadRecentEscalations() {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('conversations')
                 .select('message, visitor_id')
                 .eq('status', 'escalated')
