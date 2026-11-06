@@ -1,130 +1,64 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    process.env.SUPABASE_URL, 
-    process.env.SUPABASE_ANON_KEY,
-    { db: { schema: 'public' } }
-);
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ymvhnwcteeonvwhhoksd.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const ADMIN_WORKSPACES = ['devansh_admin', 'helppilot_admin', 'test_store'];
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-    );
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
+  try {
+    const { message, appId, visitorId } = req.body;
+    const workspaceId = appId || 'default';
 
-    try {
-        const { message, workspaceId } = req.body;
-        const lowerMsg = (message || '').toLowerCase();
+    // 14-Day Free Trial Check (Skipped for Devansh Admin Workspaces)
+    if (!ADMIN_WORKSPACES.includes(workspaceId)) {
+      const { data: firstConv } = await supabase
+        .from('conversations')
+        .select('created_at')
+        .eq('app_id', workspaceId)
+        .order('created_at', { ascending: true })
+        .limit(1);
 
-        let reply = "";
-        let isEscalated = false;
+      if (firstConv && firstConv.length > 0) {
+        const startDate = new Date(firstConv[0].created_at);
+        const currentDate = new Date();
+        const diffDays = Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24));
 
-        // 1. Check Human Escalation First
-        if (lowerMsg.includes('human') || lowerMsg.includes('agent') || lowerMsg.includes('complaint') || lowerMsg.includes('talk') || lowerMsg.includes('urgent') || lowerMsg.includes('support')) {
-            reply = "I have escalated your issue to a human support agent. Our team will contact you shortly!";
-            isEscalated = true;
-        } else {
-            // 2. Check Supabase Knowledge Base First (Flexible Keyword Match)
-            try {
-                const { data: kbData } = await supabase
-                    .from('knowledge_base')
-                    .select('*');
-                
-                if (kbData && kbData.length > 0) {
-                    let matched = kbData.find(item => {
-                        const t = (item.title || '').toLowerCase();
-                        return lowerMsg === t || lowerMsg.includes(t) || t.includes(lowerMsg);
-                    });
-                    
-                    if (!matched) {
-                        let bestMatch = null;
-                        let maxMatches = 0;
-                        kbData.forEach(item => {
-                            const t = (item.title || '').toLowerCase();
-                            const keywords = t.split(' ').filter(w => w.length > 3);
-                            const matchCount = keywords.filter(word => lowerMsg.includes(word)).length;
-                            if (matchCount > maxMatches) {
-                                maxMatches = matchCount;
-                                bestMatch = item;
-                            }
-                        });
-                        if (maxMatches >= 3) {
-                            matched = bestMatch;
-                        }
-                    }
-
-                    if (matched) {
-                        reply = matched.content;
-                    }
-                }
-            } catch (kbErr) {
-                console.error("KB Fetch Error:", kbErr);
-            }
-
-            // 3. Fallback to Gemini API if not in KB
-            if (!reply) {
-                const apiKey = process.env.GEMINI_API_KEY;
-                if (apiKey) {
-                    try {
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{
-                                    parts: [{
-                                        text: `You are HelpPilot AI, a helpful e-commerce customer support assistant. Answer concisely in 1-2 sentences.\nUser Question: ${message}`
-                                    }]
-                                }]
-                            })
-                        });
-
-                        const data = await response.json();
-                        reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    } catch (err) {
-                        console.error("Gemini Fetch Error:", err);
-                    }
-                }
-            }
-
-            // 4. Default Fallback
-            if (!reply) {
-                reply = "Thanks for reaching out! How can I assist you with your order or store questions today?";
-            }
+        if (diffDays > 14) {
+          return res.status(403).json({
+            reply: "Trial Expired: This store's 14-day free trial has ended. Please upgrade to HelpPilot AI Pro.",
+            status: "trial_expired"
+          });
         }
-
-        // 5. Save to Supabase
-        try {
-            await supabase.from('conversations').insert([
-                {
-                    app_id: workspaceId || 'default',
-                    visitor_id: 'visitor_1029',
-                    message: message,
-                    status: isEscalated ? 'escalated' : 'active'
-                }
-            ]);
-        } catch (dbErr) {
-            console.error("Supabase Insert Error:", dbErr);
-        }
-
-        return res.status(200).json({
-            reply: reply,
-            escalated: isEscalated
-        });
-
-    } catch (error) {
-        console.error("Handler Error:", error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+      }
     }
-}
+
+    const lowerMsg = message.toLowerCase();
+    const escalationKeywords = ['human', 'agent', 'support', 'complaint', 'person', 'manager'];
+    const isEscalation = escalationKeywords.some(kw => lowerMsg.includes(kw));
+
+    let reply = "";
+    let status = isEscalation ? 'escalated' : 'active';
+
+    if (isEscalation) {
+      reply = "I am routing your query to a human support agent. Please stay on line!";
+    } else {
+      // Fetch specific KB for this store's app_id, with fallback to default
+      const { data: kbData } = await supabase
+        .from('knowledge_base')
+        .select('content, title')
+        .or(`app_id.eq.${workspaceId},app_id.eq.default`);  let matchedKB = null; if (kbData && kbData.length > 0) { matchedKB = kbData.find(item => lowerMsg.includes(item.title.toLowerCase())); }  if (matchedKB) { reply = matchedKB.content; } else if (GEMINI_API_KEY) { // Gemini AI Fallback Engine const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `You are an AI support assistant for an e-commerce store. Answer in 1-2 concise sentences in the customer's
