@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ymvhnwcteeonvwhhoksd.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi'; // Backup fallback
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const lowerMsg = (message || '').toLowerCase();
+    const lowerMsg = (message || '').trim().toLowerCase();
     const escalationKeywords = ['human', 'agent', 'support', 'complaint', 'person', 'manager'];
     const isEscalation = escalationKeywords.some(kw => lowerMsg.includes(kw));
 
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     if (isEscalation) {
       reply = "I am routing your query to a human support agent. Please stay on line!";
     } else {
-      // Safe KB Fetching
+      // 1. Smart Knowledge Base Matching Logic
       let matchedKB = null;
       try {
         const { data: kbData } = await supabase
@@ -61,34 +61,68 @@ export default async function handler(req, res) {
           .select('content, title, app_id');
 
         if (kbData && kbData.length > 0) {
-          matchedKB = kbData.find(item => 
-            (item.app_id === workspaceId || item.app_id === 'default') && 
-            item.title && lowerMsg.includes(item.title.toLowerCase())
-          );
+          matchedKB = kbData.find(item => {
+            if (!item.title) return false;
+            const titleLower = item.title.toLowerCase();
+            return (
+              (item.app_id === workspaceId || item.app_id === 'default' || item.app_id === 'devansh_admin') &&
+              (lowerMsg.includes(titleLower) || titleLower.includes(lowerMsg) || lowerMsg.split(' ').some(word => word.length > 3 && titleLower.includes(word)))
+            );
+          });
         }
       } catch (kbErr) {
-        console.error("KB Fetch Error:", kbErr);
+        console.error("KB Search Error:", kbErr);
       }
 
       if (matchedKB) {
         reply = matchedKB.content;
       } else if (GEMINI_API_KEY) {
-        // Gemini AI Fallback Engine
+        // 2. Gemini AI Response Generation Engine
         try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: `You are an AI support assistant for an e-commerce store. Answer in 1-2 concise sentences in the customer's language (English, Hindi, or Hinglish): ${message}` }] }]
-            })
-          });
-          const aiData = await response.json();
-          reply = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "Thank you for reaching out! A support team member will assist you shortly.";
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      {
+                        text: `You are an AI customer support assistant for HelpPilot AI store. Respond accurately and politely in 1-2 concise sentences matching the user's language (English, Hindi, or Hinglish). User Query: ${message}`
+                      }
+                    ]
+                  }
+                ]
+              })
+            }
+          );
+
+          const aiData = await geminiRes.json();
+          reply = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (!reply) {
+            // Backup Gemini REST endpoint format
+            const geminiResBackup = await fetch(
+              `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: `Answer nicely in 1 sentence: ${message}` }] }]
+                })
+              }
+            );
+            const backupData = await geminiResBackup.json();
+            reply = backupData?.candidates?.[0]?.content?.parts?.[0]?.text;
+          }
         } catch (aiErr) {
-          reply = "Thank you for reaching out! A support team member will assist you shortly.";
+          console.error("Gemini AI API Call Error:", aiErr);
         }
-      } else {
-        reply = "Thank you for reaching out! A support representative will assist you shortly.";
+      }
+
+      if (!reply) {
+        reply = "Hello! I am your AI assistant. How can I help you with your order or store questions today?";
       }
     }
 
@@ -100,16 +134,16 @@ export default async function handler(req, res) {
         message: message,
         status: status
       }]);
-    } catch (dbInsertErr) {
-      console.error("Insert Error:", dbInsertErr);
+    } catch (dbErr) {
+      console.error("DB Log Error:", dbErr);
     }
 
     return res.status(200).json({ reply, status });
   } catch (err) {
-    console.error("Chat API Critical Error:", err);
-    return res.status(200).json({ 
-      reply: "Thank you for reaching out! A support agent will get back to you shortly.", 
-      status: "fallback" 
+    console.error("Chat Handler Error:", err);
+    return res.status(200).json({
+      reply: "Hi there! I am here to assist you. What can I help you with today?",
+      status: "active"
     });
   }
 }
