@@ -4,18 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HelpPilot AI - AI Customer Support Chatbot for E-commerce</title>
+    <!-- Supabase JS Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background: #080c14; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
         
         /* Top Navigation Bar */
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; border-bottom: 1px solid #1e293b; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); sticky; top: 0; z-index: 100; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; border-bottom: 1px solid #1e293b; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 100; }
         .logo { font-size: 22px; font-weight: 800; color: #6366f1; letter-spacing: -0.5px; }
         .nav-items { display: flex; gap: 24px; list-style: none; align-items: center; }
         .nav-link { color: #94a3b8; text-decoration: none; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
         .nav-link:hover { color: #fff; }
         .btn-primary { background: #6366f1; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; transition: 0.2s; }
         .btn-primary:hover { background: #4f46e5; }
+        .btn-outline { background: transparent; color: #fff; border: 1px solid #334155; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-outline:hover { background: #1e293b; }
         
         /* Hero Section */
         .hero { text-align: center; padding: 80px 20px 60px; max-width: 900px; margin: 0 auto; }
@@ -49,6 +53,10 @@
         .view-section { display: none; }
         .view-section.active { display: block; }
         .kb-item { background: #0b0f19; padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; border: 1px solid #334155; }
+
+        /* Auth Modal Overlay */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-card { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 32px; width: 400px; box-shadow: 0 25px 50px rgba(0,0,0,0.7); }
     </style>
 </head>
 <body>
@@ -60,203 +68,14 @@
             <li><a class="nav-link" onclick="scrollToDash('overview')">Analytics</a></li>
             <li><a class="nav-link" onclick="scrollToDash('create')">Get Widget</a></li>
             <li><a class="nav-link" onclick="scrollToDash('pricing')">Pricing</a></li>
-            <li><button class="btn-primary" onclick="scrollToDash('create')">Deploy Free</button></li>
+            <li id="auth-nav-item"><button class="btn-outline" onclick="openAuthModal()">Sign In</button></li>
         </ul>
     </nav>
 
-    <!-- Convot-Style Hero Section -->
+    <!-- Hero Section -->
     <section class="hero">
         <div class="badge">⚡ 30-Second E-Commerce Support Automation</div>
         <h1 class="hero-title">Automate Customer Support for Your Online Store with AI</h1>
         <p class="hero-sub">HelpPilot AI resolves refund, shipping, and product queries automatically while seamlessly escalating complex issues to human agents.</p>
         <div class="hero-btns">
-            <button class="btn-primary" onclick="scrollToDash('create')" style="padding: 14px 28px; font-size: 16px;">Get Your Widget Code</button>
-            <a href="/test" target="_blank" class="btn-secondary" style="padding: 14px 28px; font-size: 16px;">Live Demo Test ↗</a>
-        </div>
-    </section>
-
-    <!-- Live Platform & Dashboard App -->
-    <div class="dashboard-container" id="dash-app">
-        <div class="sidebar">
-            <div style="font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 12px; letter-spacing: 1px;">WORKSPACE</div>
-            <div class="sidebar-item active" onclick="switchTab('overview')">📊 Performance Analytics</div>
-            <div class="sidebar-item" onclick="switchTab('kb')">🧠 AI Knowledge Base</div>
-            <div class="sidebar-item" onclick="switchTab('create')">⚙️ Widget Embed Setup</div>
-            <div class="sidebar-item" onclick="switchTab('pricing')">💳 Subscriptions</div>
-        </div>
-
-        <div class="main-content">
-            <!-- Analytics -->
-            <div id="overview-view" class="view-section active">
-                <h2 style="margin-bottom: 20px;">Support Metrics</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Conversations</div>
-                        <div class="stat-value">24</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">AI Resolution Rate</div>
-                        <div class="stat-value" style="color: #10b981;">91.6%</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Human Escalations</div>
-                        <div class="stat-value" style="color: #f43f5e;">2</div>
-                    </div>
-                </div>
-                <div class="card">
-                    <h3 style="margin-bottom: 12px;">Recent Escalation Alerts</h3>
-                    <p style="color: #cbd5e1; font-size: 14px;">Store Visitor #1029 — <em>"I want to talk to a human agent about my delayed order."</em></p>
-                </div>
-            </div>
-
-            <!-- Q&A Trainer -->
-            <div id="kb-view" class="view-section">
-                <h2 style="margin-bottom: 20px;">Train AI Knowledge Base</h2>
-                <div class="card">
-                    <input type="text" id="kb-q" class="input-field" placeholder="User Question (e.g. What is your return policy?)" />
-                    <textarea id="kb-a" class="input-field" rows="3" placeholder="AI Answer (e.g. We accept returns within 7 days of delivery.)"></textarea>
-                    <button class="btn-primary" onclick="saveQA()">Save Trained Pair</button>
-                </div>
-                <div id="kb-list">
-                    <div class="kb-item"><strong>Q:</strong> Refund policy? <br><strong>A:</strong> We offer a 14-day money-back guarantee.</div>
-                    <div class="kb-item"><strong>Q:</strong> Shipping time? <br><strong>A:</strong> Standard shipping takes 3-5 business days.</div>
-                </div>
-            </div>
-
-            <!-- Embed Code -->
-            <div id="create-view" class="view-section">
-                <h2 style="margin-bottom: 20px;">Generate Store Script</h2>
-                <div class="card">
-                    <p style="color: #94a3b8; font-size: 14px; margin-bottom: 14px;">Enter your store name to generate your unique embed snippet:</p>
-                    <input type="text" id="store-name-input" class="input-field" placeholder="Enter Store Name (e.g. DevBuilds)" />
-                    <button class="btn-primary" onclick="generateCode()">Generate Snippet</button>
-                </div>
-                <div class="card" id="code-card" style="display: none;">
-                    <p style="color: #94a3b8; font-size: 14px; margin-bottom: 10px;">Paste this script tag into your Shopify/HTML website head section:</p>
-                    <div class="code-box" id="generated-snippet"></div>
-                </div>
-            </div>
-
-            <!-- Pricing -->
-            <div id="pricing-view" class="view-section">
-                <h2 style="margin-bottom: 20px;">Subscription Plans</h2>
-                <div class="pricing-grid">
-                    <div class="plan-card">
-                        <h3>Starter Plan</h3>
-                        <div style="font-size: 28px; font-weight: 800; margin: 12px 0;">₹0 <span style="font-size: 14px; color: #94a3b8;">/month</span></div>
-                        <p style="color: #cbd5e1; font-size: 13px; margin-bottom: 16px;">Up to 100 AI Chats/mo, Standard Support.</p>
-                        <button class="btn-secondary" style="width: 100%;">Active Free Plan</button>
-                    </div>
-                    <div class="plan-card featured">
-                        <h3 style="color: #6366f1;">Pro Store Plan</h3>
-                        <div style="font-size: 28px; font-weight: 800; margin: 12px 0;">₹499 <span style="font-size: 14px; color: #94a3b8;">/month</span></div>
-                        <p style="color: #cbd5e1; font-size: 13px; margin-bottom: 16px;">Unlimited AI Chats, Live Escalation Inbox, Priority Training.</p>
-                        <button class="btn-primary" style="width: 100%;" onclick="openPayment()">Upgrade to Pro ⚡</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-  <script>
-        function switchTab(tab) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
-            
-            document.getElementById(tab + '-view').classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        function scrollToDash(tab) {
-            switchTab(tab);
-            document.getElementById('dash-app').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function generateCode() {
-            const input = document.getElementById('store-name-input').value.trim();
-            if(!input) return alert('Please enter a store name');
-
-            const workspaceId = input.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            const snippet = `<script src="https://helppilotai.vercel.app/widget.js" data-workspace-id="${workspaceId}" async><\/script>`;
-
-            document.getElementById('generated-snippet').textContent = snippet;
-            document.getElementById('code-card').style.display = 'block';
-        }
-
-        // Page load hote hi Supabase se saved Q&A fetch karne ke liye
-        async function loadKB() {
-            try {
-                const res = await fetch('/api/knowledge');
-                const result = await res.json();
-                if (result.data && result.data.length > 0) {
-                    const kbList = document.getElementById('kb-list');
-                    kbList.innerHTML = '';
-                    result.data.forEach(item => {
-                        const div = document.createElement('div');
-                        div.className = 'kb-item';
-                        div.innerHTML = `<strong>Q:</strong> ${item.title} <br><strong>A:</strong> ${item.content}`;
-                        kbList.appendChild(div);
-                    });
-                }
-            } catch (err) {
-                console.error('Error loading KB:', err);
-            }
-        }
-
-        // Jab save button dabega tab Supabase mein data insert hoga
-        async function saveQA() {
-            const q = document.getElementById('kb-q').value.trim();
-            const a = document.getElementById('kb-a').value.trim();
-            if(!q || !a) return alert('Please enter both question and answer');
-
-            try {
-                const response = await fetch('/api/knowledge', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: q, content: a })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    alert('Q&A Saved successfully to Supabase!');
-                    document.getElementById('kb-q').value = '';
-                    document.getElementById('kb-a').value = '';
-                    loadKB(); 
-                } else {
-                    alert('Error saving data: ' + (result.error || 'Unknown error'));
-                }
-            } catch (err) {
-                alert('Network error while saving');
-            }
-        }
-
-        // Supabase se dynamic analytics fetch karne ke liye
-        async function loadAnalytics() {
-            try {
-                const res = await fetch('/api/analytics');
-                const result = await res.json();
-                if (result.success) {
-                    const statValues = document.querySelectorAll('.stat-value');
-                    if (statValues.length >= 3) {
-                        statValues[0].textContent = result.totalConversations;
-                        statValues[1].textContent = result.resolutionRate;
-                        statValues[2].textContent = result.escalations;
-                    }
-                }
-            } catch (err) {
-                console.error('Error loading analytics:', err);
-            }
-        }
-
-        // Page load hone par dono functions run honge
-        window.onload = function() {
-            loadKB();
-            loadAnalytics();
-        };
-
-        function openPayment() {
-            alert('Redirecting to Payment Gateway for ₹499/month Pro Subscription...');
-        }
-    </script>
-</body>
-</html>
+            <button class="btn-primary" onclick="scrollToDash('create')" style="padding: 14px 2
