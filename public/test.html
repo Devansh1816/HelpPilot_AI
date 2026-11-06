@@ -3,15 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Store Test</title>
+    <title>Apex Store | Live Demo Test</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --card-bg: #131b2e;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --border: #1e293b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        /* NAVBAR */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 8%;
+            border-bottom: 1px solid var(--border);
+            background: rgba(19, 27, 46, 0.6);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo span { color: var(--accent); }
+
+        .nav-links {
+            display: flex;
+            gap: 25px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-sub);
+            text-decoration: none;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .nav-links a:hover { color: #fff; }
+
+        /* HERO SECTION */
+        .hero {
+            padding: 60px 8% 40px;
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .badge {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 20px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .hero h1 {
+            font-size: 42px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 16px;
+        }
+
+        .hero p {
+            color: var(--text-sub);
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        /* PRODUCTS GRID */
+        .section-title {
+            padding: 20px 8% 10px;
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            padding: 10px 8% 60px;
+        }
+
+        .product-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+        }
+
+        .product-img {
+            width: 100%;
+            height: 160px;
+            background: #1e293b;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+
+        .product-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .product-price {
+            color: #38bdf8;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .btn-buy {
+            width: 100%;
+            padding: 10px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-buy:hover {
+            background: var(--accent-hover);
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            border-top: 1px solid var(--border);
+            color: var(--text-sub);
+            font-size: 13px;
+        }
+    </style>
 </head>
-<body style="background: #0f172a; color: #fff; font-family: sans-serif; padding: 40px;">
+<body>
 
-    <h1>Welcome to My E-commerce Store</h1>
-    <p>Testing HelpPilot AI Chatbot floating widget integration.</p>
+    <!-- NAVBAR -->
+    <nav>
+        <div class="logo">⚡ Apex<span>Store</span></div>
+        <ul class="nav-links">
+            <li><a href="#">Home</a></li>
+            <li><a href="#">Products</a></li>
+            <li><a href="#">Support</a></li>
+        </ul>
+    </nav>
 
-    <!-- Clean Script Call -->
-    <script src="https://helppilotai.vercel.app/widget.js" async></script>
+    <!-- HERO -->
+    <div class="hero">
+        <span class="badge">🤖 HelpPilot AI Powered Store</span>
+        <h1>Experience Next-Gen Customer Shopping</h1>
+        <p>Test the floating AI assistant widget at the bottom right. Ask about return policies, pricing plans, or request a human agent!</p>
+    </div>
 
+    <!-- FEATURED PRODUCTS -->
+    <div class="section-title">Featured Collections</div>
+    <div class="products-grid">
+        <div class="product-card">
+            <div class="product-img">🎧</div>
+            <div class="product-title">Wireless ANC Headphones</div>
+            <div class="product-price">₹4,999</div>
+            <button class="btn-buy">Add to Cart</button>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">⌚</div>
+            <div class="product-title">Smart Fitness Watch</div>
+            <div class="product-price">₹2,499</div>
+            <button class="btn-buy">Add to Cart</button>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">⌨️</div>
+            <div class="product-title">Mechanical Gaming Keyboard</div>
+            <div class="product-price">₹3,299</div>
+            <button class="btn-buy">Add to Cart</button>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 ApexStore Demo. Embedded with HelpPilot AI Support Widget.</p>
+    </footer>
+
+    <!-- HELPPILOT AI FLOATING CHAT WIDGET EMBED -->
+    <script src="https://helppilotai.vercel.app/widget.js" data-app-id="devansh_admin"></script>
 </body>
 </html>
