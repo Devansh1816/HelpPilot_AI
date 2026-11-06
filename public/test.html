@@ -310,52 +310,25 @@
     <script src="https://helppilotai.vercel.app/widget.js" data-app-id="devansh_admin"></script>
 
 <script>
-    function triggerChatQuery(queryText) {
-        // 1. Check if HelpPilot global launcher function exists or toggle launcher button
-        const launcherBtn = document.getElementById('helppilot-widget-button') || 
-                            document.querySelector('.helppilot-launcher') || 
-                            document.querySelector('[data-helppilot-launcher]');
-        
-        // Open Widget Window if closed
-        if (window.HelpPilotAI && typeof window.HelpPilotAI.open === 'function') {
-            window.HelpPilotAI.open();
-        } else if (launcherBtn) {
-            launcherBtn.click();
+        function triggerChatQuery(queryText) {
+            // PostMessage broadcast to widget.js
+            window.postMessage({
+                type: 'HELPPILOT_SEND_QUERY',
+                query: queryText
+            }, '*');
         }
 
-        // 2. Retry loop to find input box inside widget or embedded iframe
-        let attempts = 0;
-        const maxAttempts = 10;
-        
-        const interval = setInterval(() => {
-            attempts++;
-            
-            // Try accessing standard DOM or iframe DOM
-            let iframe = document.getElementById('helppilot-widget-iframe');
-            let doc = iframe ? (iframe.contentDocument || iframe.contentWindow?.document) : document;
-            
-            let chatInput = doc ? (doc.getElementById('helppilot-input') || doc.querySelector('input[type="text"]') || doc.querySelector('.helppilot-input')) : null;
-            let sendBtn = doc ? (doc.getElementById('helppilot-send-btn') || doc.querySelector('button[type="submit"]') || doc.querySelector('.helppilot-send')) : null;
-
-            if (chatInput && sendBtn) {
-                chatInput.value = queryText;
-                chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-                sendBtn.click();
-                clearInterval(interval);
-            } else if (attempts >= maxAttempts) {
-                clearInterval(interval);
-            }
-        }, 200);
-    }
-
-    function handleSearch(event) {
-        if (event.key === 'Enter') {
-            const val = document.getElementById('main-search-input').value;
-            if (val.trim() !== '') {
-                triggerChatQuery(val);
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                const val = document.getElementById('main-search-input').value;
+                if (val.trim() !== '') {
+                    triggerChatQuery(val);
+                    document.getElementById('main-search-input').value = '';
+                }
             }
         }
-    }
-</script>
+    </script>
+</body>
+</html>
 </body>
 </html>
