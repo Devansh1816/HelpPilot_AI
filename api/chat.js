@@ -43,14 +43,30 @@ export default async function handler(req, res) {
                     .select('*');
                 
                 if (kbData && kbData.length > 0) {
-                    const matched = kbData.find(item => {
+                    let matched = kbData.find(item => {
                         const t = (item.title || '').toLowerCase();
-                        const keywords = t.split(' ').filter(w => w.length > 3);
-                        const matchCount = keywords.filter(word => lowerMsg.includes(word)).length;
-                        return lowerMsg.includes(t) || t.includes(lowerMsg) || (keywords.length > 0 && matchCount >= Math.min(2, keywords.length));
+                        return lowerMsg === t || lowerMsg.includes(t) || t.includes(lowerMsg);
                     });
+                    
+                    if (!matched) {
+                        let bestMatch = null;
+                        let maxMatches = 0;
+                        kbData.forEach(item => {
+                            const t = (item.title || '').toLowerCase();
+                            const keywords = t.split(' ').filter(w => w.length > 3);
+                            const matchCount = keywords.filter(word => lowerMsg.includes(word)).length;
+                            if (matchCount > maxMatches) {
+                                maxMatches = matchCount;
+                                bestMatch = item;
+                            }
+                        });
+                        if (maxMatches >= 3) {
+                            matched = bestMatch;
+                        }
+                    }
+
                     if (matched) {
-                        reply = matched.content; // Answer is in 'content' column
+                        reply = matched.content;
                     }
                 }
             } catch (kbErr) {
