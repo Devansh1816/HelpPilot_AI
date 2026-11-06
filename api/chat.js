@@ -1,3 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+    process.env.SUPABASE_URL, 
+    process.env.SUPABASE_ANON_KEY,
+    { db: { schema: 'public' } }
+);
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,60 +28,64 @@ export default async function handler(req, res) {
         const { message, workspaceId } = req.body;
         const lowerMsg = (message || '').toLowerCase();
 
+        let reply = "";
+        let isEscalated = false;
+
         // 1. Static Keywords
         if (lowerMsg.includes('human') || lowerMsg.includes('agent') || lowerMsg.includes('complaint')) {
-            return res.status(200).json({
-                reply: "I have escalated your issue to a human support agent. Our team will contact you shortly!",
-                escalated: true
-            });
-        }
-
-        if (lowerMsg.includes('refund') || lowerMsg.includes('return')) {
-            return res.status(200).json({
-                reply: "We offer a full 14-day money-back guarantee on all orders.",
-                escalated: false
-            });
-        }
-
-        if (lowerMsg.includes('shipping') || lowerMsg.includes('delivery')) {
-            return res.status(200).json({
-                reply: "Standard shipping takes 3 to 5 business days.",
-                escalated: false
-            });
-        }
-
-        // 2. Gemini API Call
-        const apiKey = process.env.GEMINI_API_KEY;
-
-        if (apiKey) {
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: `You are HelpPilot AI, a helpful e-commerce customer support assistant. Answer concisely in 1-2 sentences.\nUser Question: ${message}`
+            reply = "I have escalated your issue to a human support agent. Our team will contact you shortly!";
+            isEscalated = true;
+        } else if (lowerMsg.includes('refund') || lowerMsg.includes('return')) {
+            reply = "We offer a full 14-day money-back guarantee on all orders.";
+        } else if (lowerMsg.includes('shipping') || lowerMsg.includes('delivery')) {
+            reply = "Standard shipping takes 3 to 5 business days.";
+        } else {
+            // 2. Gemini API Call
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (apiKey) {
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: `You are HelpPilot AI, a helpful e-commerce customer support assistant. Answer concisely in 1-2 sentences.\nUser Question: ${message}`
+                                }]
                             }]
-                        }]
-                    })
-                });
+                        })
+                    });
 
-                const data = await response.json();
-                const aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (aiReply) {
-                    return res.status(200).json({ reply: aiReply, escalated: false });
+                    const data = await response.json();
+                    reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                } catch (err) {
+                    console.error("Gemini Fetch Error:", err);
                 }
-            } catch (err) {
-                console.error("Gemini Fetch Error:", err);
+            }
+
+            // Fallback if Gemini fails or key missing
+            if (!reply) {
+                reply = "Thanks for reaching out! How can I assist you with your order or store questions today?";
             }
         }
 
-        // Fallback response if key is missing or call fails
+        // 3. Save Conversation / Escalation to Supabase
+        try {
+            await supabase.from('conversations').insert([
+                {
+                    workspace_id: workspaceId || 'default',
+                    message: message,
+                    reply: reply,
+                    status: isEscalated ? 'escalated' : 'resolved'
+                }
+            ]);
+        } catch (dbErr) {
+            console.error("Supabase Insert Error:", dbErr);
+        }
+
         return res.status(200).json({
-            reply: "Thanks for reaching out! How can I assist you with your order or store questions today?",
-            escalated: false
+            reply: reply,
+            escalated: isEscalated
         });
 
     } catch (error) {
