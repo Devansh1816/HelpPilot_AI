@@ -68,21 +68,12 @@
             border-radius: 30px;
             font-size: 13px;
             font-weight: 600;
-            background: rgba(99, 102, 241, 0.12);
-            color: #a5b4fc;
-            border: 1px solid rgba(99, 102, 241, 0.3);
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
             display: flex;
             align-items: center;
             gap: 8px;
-        }
-
-        .status-badge::before {
-            content: '';
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--success);
-            box-shadow: 0 0 8px var(--success);
         }
 
         /* LANDING & AUTH CONTAINER */
@@ -398,8 +389,8 @@
     <a href="#" class="brand-logo">
         🤖 HelpPilot <span>AI</span>
     </a>
-    <div id="user-status" class="display: flex; align-items: center;">
-        <span id="trial-badge" class="status-badge">Portal Offline</span>
+    <div id="user-status" style="display: flex; align-items: center;">
+        <span id="trial-badge" class="status-badge">🟢 System Active</span>
         <button id="logout-btn" onclick="handleLogout()" class="btn-secondary hidden" style="width: auto; padding: 6px 16px; margin-left: 14px;">Logout</button>
     </div>
 </header>
@@ -433,17 +424,17 @@
 
         <div class="input-group">
             <label>Work Email</label>
-            <input type="email" id="auth-email" placeholder="name@store.com" value="demo@store.com">
+            <input type="email" id="auth-email" placeholder="e.g. owner@mystore.com" value="">
         </div>
 
         <div class="input-group">
             <label>Password</label>
-            <input type="password" id="auth-password" placeholder="••••••••" value="123456">
+            <input type="password" id="auth-password" placeholder="Enter password" value="">
         </div>
 
         <div class="input-group">
             <label>Store Name</label>
-            <input type="text" id="auth-store" placeholder="e.g. Royal Fashion" value="Royal Fashion">
+            <input type="text" id="auth-store" placeholder="e.g. Royal Fashion" value="">
         </div>
 
         <div class="auth-actions">
@@ -549,7 +540,7 @@
     };
 
     async function handleSignUp() {
-        const email = document.getElementById('auth-email').value;
+        const email = document.getElementById('auth-email').value || 'demo@store.com';
         const storeName = document.getElementById('auth-store').value || 'My Store';
         const appId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
 
@@ -558,7 +549,7 @@
     }
 
     async function handleLogin() {
-        const email = document.getElementById('auth-email').value;
+        const email = document.getElementById('auth-email').value || 'demo@store.com';
         const storeName = document.getElementById('auth-store').value || 'Royal Fashion';
         
         if (email.includes('devansh') || email === 'devanshtripathi217@gmail.com') {
