@@ -42,21 +42,26 @@ export default async function handler(req, res) {
             reply = "Standard shipping takes 3 to 5 business days.";
             isEscalated = false;
         } else {
-            // 2. Check Supabase Knowledge Base First
+          // 2. Check Supabase Knowledge Base First (Keyword Match)
             try {
                 const { data: kbData } = await supabase
                     .from('knowledge_base')
                     .select('*');
                 
                 if (kbData && kbData.length > 0) {
-                    const matched = kbData.find(item => 
-                        lowerMsg.includes((item.question || '').toLowerCase()) ||
-                        (item.question || '').toLowerCase().includes(lowerMsg)
-                    );
+                    const matched = kbData.find(item => {
+                        const q = (item.question || '').toLowerCase();
+                        // Check if any significant word from user message matches the KB question
+                        const userWords = lowerMsg.split(' ').filter(w => w.length > 3);
+                        return q.includes(lowerMsg) || lowerMsg.includes(q) || userWords.some(word => q.includes(word));
+                    });
                     if (matched) {
                         reply = matched.answer;
                     }
                 }
+            } catch (kbErr) {
+                console.error("KB Fetch Error:", kbErr);
+            }
             } catch (kbErr) {
                 console.error("KB Fetch Error:", kbErr);
             }
