@@ -189,7 +189,7 @@
 
 <script>
     const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoksd.supabase.co';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // Replace with actual anon key
+    const SUPABASE_ANON_KEY = 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi'; // Replace with actual anon key
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentAppId = 'default';
@@ -302,4 +302,69 @@
             const daysLeft = Math.max(0, 14 - daysUsed);
 
             if (daysLeft === 0) {
-                document.getElementById('trial-badge').innerHTML = '🔴 Trial
+                document.getElementById('trial-badge').innerHTML = '🔴 Trial Expired (Upgrade to Pro)';
+            } else {
+                document.getElementById('trial-badge').innerHTML = `⏱️ Free Trial: ${daysLeft} Days Remaining`;
+            }
+        } else {
+            document.getElementById('trial-badge').innerHTML = '⏱️ Free Trial: 14 Days Remaining';
+        }
+    }
+
+    async function addKBEntry() {
+        const question = document.getElementById('kb-question').value;
+        const answer = document.getElementById('kb-answer').value;
+
+        if (!question || !answer) return alert('Please enter both question and answer!');
+
+        await supabaseClient.from('knowledge_base').insert([{
+            app_id: currentAppId,
+            title: question,
+            content: answer
+        }]);
+
+        document.getElementById('kb-question').value = '';
+        document.getElementById('kb-answer').value = '';
+        alert('FAQ Entry Saved to Knowledge Base!');
+        loadDashboardData();
+    }
+
+    async function loadDashboardData() {
+        let kbQuery = supabaseClient.from('knowledge_base').select('*');
+        let chatQuery = supabaseClient.from('conversations').select('*').order('created_at', { ascending: false });
+
+        if (!isSuperAdmin) {
+            kbQuery = kbQuery.eq('app_id', currentAppId);
+            chatQuery = chatQuery.eq('app_id', currentAppId);
+        }
+
+        const { data: kbData } = await kbQuery;
+        const { data: chatData } = await chatQuery;
+
+        if (kbData) {
+            document.getElementById('stat-kb-count').innerText = kbData.length;
+            document.getElementById('kb-list').innerHTML = kbData.map(item => `
+                <div class="kb-item">
+                    <strong>Q: ${item.title}</strong>
+                    <p style="margin: 4px 0 0 0; color: var(--text-sub);">${item.content}</p>
+                </div>
+            `).join('') || '<p style="color: var(--text-sub);">No FAQs added yet.</p>';
+        }
+
+        if (chatData) {
+            document.getElementById('stat-chats').innerText = chatData.length;
+            const escalations = chatData.filter(c => c.status === 'escalated').length;
+            document.getElementById('stat-escalations').innerText = escalations;
+
+            document.getElementById('chat-logs').innerHTML = chatData.map(c => `
+                <div class="chat-item" style="border-left-color: ${c.status === 'escalated' ? '#f87171' : '#6366f1'};">
+                    <span style="font-size: 12px; color: var(--text-sub);">${new Date(c.created_at).toLocaleTimeString()} | Visitor: ${c.visitor_id} [Store: ${c.app_id}]</span>
+                    <p style="margin: 4px 0 0 0;"><strong>Message:</strong> ${c.message}</p>
+                    ${c.status === 'escalated' ? '<strong style="color: #f87171;">⚠️ Human Escalation Triggered</strong>' : ''}
+                </div>
+            `).join('') || 'No chat history recorded yet.';
+        }
+    }
+</script>
+</body>
+</html>
