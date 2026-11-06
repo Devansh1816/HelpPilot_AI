@@ -180,167 +180,167 @@
         </div>
     </div>
 
-  <script>
-        // Initialize Supabase Client for Frontend Auth
-        const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoks0.supabase.co'; // Update with your project url if needed or read from env
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Ensure valid public anon key or window config
-        // Note: For public static hosting, ensure your Supabase public credentials are wired safely.
+<!-- Supabase CDN Link -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-        let isSignUpMode = false;
+<script>
+    // Initialize Supabase Client for Frontend
+    const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoksd.supabase.co'; 
+    const SUPABASE_ANON_KEY = 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi'; // Apni real Supabase Anon Key yahan lagao
 
-        function openAuthModal() {
-            document.getElementById('auth-modal').style.display = 'flex';
-        }
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        function closeAuthModal() {
-            document.getElementById('auth-modal').style.display = 'none';
-        }
+    let isSignUpMode = false;
 
-        function toggleAuthMode() {
-            isSignUpMode = !isSignUpMode;
-            document.getElementById('auth-modal-title').textContent = isSignUpMode ? 'Create Store Account' : 'Store Owner Login';
-            document.getElementById('auth-switch-text').textContent = isSignUpMode ? 'Already have an account? Sign In' : "Don't have an account? Sign Up";
-        }
-
-        async function handleAuthSubmit() {
-            const email = document.getElementById('auth-email').value.trim();
-            const password = document.getElementById('auth-password').value.trim();
-            if(!email || !password) return alert('Please enter both email and password');
-
-            // Mock or implement direct Supabase JS Auth call if keys are exposed, or route through API
-            alert(isSignUpMode ? 'Sign up submitted for: ' + email : 'Login authenticated for: ' + email);
-            closeAuthModal();
-            document.getElementById('auth-nav-item').innerHTML = `<span style="color: #10b981; font-size: 13px; font-weight: 600;">🟢 ${email.split('@')[0]}</span>`;
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
-            
-            document.getElementById(tab + '-view').classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        function scrollToDash(tab) {
-            switchTab(tab);
-            document.getElementById('dash-app').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function generateCode() {
-            const input = document.getElementById('store-name-input').value.trim();
-            if(!input) return alert('Please enter a store name');
-
-            const workspaceId = input.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            const snippet = `<script src="https://helppilotai.vercel.app/widget.js" data-workspace-id="${workspaceId}" async><\/script>`;
-
-            document.getElementById('generated-snippet').textContent = snippet;
-            document.getElementById('code-card').style.display = 'block';
-        }
-
-        async function loadKB() {
-            try {
-                const res = await fetch('/api/knowledge');
-                const result = await res.json();
-                if (result.data && result.data.length > 0) {
-                    const kbList = document.getElementById('kb-list');
-                    kbList.innerHTML = '';
-                    result.data.forEach(item => {
-                        const div = document.createElement('div');
-                        div.className = 'kb-item';
-                        div.innerHTML = `<strong>Q:</strong> ${item.title} <br><strong>A:</strong> ${item.content}`;
-                        kbList.appendChild(div);
-                    });
-                }
-            } catch (err) {
-                console.error('Error loading KB:', err);
-            }
-        }
-
-async function loadRecentEscalations() {
-    try {
-        const { data, error } = await supabase
-            .from('conversations')
-            .select('message, visitor_id')
-            .eq('status', 'escalated')
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-        if (error) {
-            console.error("Supabase escalation fetch error:", error);
-            return;
-        }
-
-        const alertText = document.getElementById('escalation-alert-text');
-        if (alertText) {
-            if (data && data.length > 0 && data[0].message) {
-                const latest = data[0];
-                const visitorId = latest.visitor_id || '1029';
-                alertText.innerHTML = `Store Visitor #${visitorId} — <em>"${latest.message}"</em>`;
-            } else {
-                alertText.innerHTML = `Store Visitor #1029 — <em>"No active escalation messages found."</em>`;
-            }
-        }
-    } catch (err) {
-        console.error("Dashboard Fetch Catch Error:", err);
+    function openAuthModal() {
+        document.getElementById('auth-modal').style.display = 'flex';
     }
-}
 
-// Ensure execution after page load + 3-sec interval polling
-document.addEventListener('DOMContentLoaded', () => {
-    loadRecentEscalations();
-    setInterval(loadRecentEscalations, 3000);
-});
-        async function saveQA() {
-            const q = document.getElementById('kb-q').value.trim();
-            const a = document.getElementById('kb-a').value.trim();
-            if(!q || !a) return alert('Please enter both question and answer');
+    function closeAuthModal() {
+        document.getElementById('auth-modal').style.display = 'none';
+    }
 
-            try {
-                const response = await fetch('/api/knowledge', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: q, content: a })
+    function toggleAuthMode() {
+        isSignUpMode = !isSignUpMode;
+        document.getElementById('auth-modal-title').textContent = isSignUpMode ? 'Create Store Account' : 'Store Owner Login';
+        document.getElementById('auth-switch-text').textContent = isSignUpMode ? 'Already have an account? Sign In' : "Don't have an account? Sign Up";
+    }
+
+    async function handleAuthSubmit() {
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value.trim();
+        if(!email || !password) return alert('Please enter both email and password');
+
+        alert(isSignUpMode ? 'Sign up submitted for: ' + email : 'Login authenticated for: ' + email);
+        closeAuthModal();
+        document.getElementById('auth-nav-item').innerHTML = `<span style="color: #10b981; font-size: 13px; font-weight: 600;">🟢 ${email.split('@')[0]}</span>`;
+    }
+
+    function switchTab(tab) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(tab + '-view').classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    function scrollToDash(tab) {
+        switchTab(tab);
+        document.getElementById('dash-app').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function generateCode() {
+        const input = document.getElementById('store-name-input').value.trim();
+        if(!input) return alert('Please enter a store name');
+
+        const workspaceId = input.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const snippet = `<script src="https://helppilotai.vercel.app/widget.js" data-workspace-id="${workspaceId}" async><\/script>`;
+
+        document.getElementById('generated-snippet').textContent = snippet;
+        document.getElementById('code-card').style.display = 'block';
+    }
+
+    async function loadKB() {
+        try {
+            const res = await fetch('/api/knowledge');
+            const result = await res.json();
+            if (result.data && result.data.length > 0) {
+                const kbList = document.getElementById('kb-list');
+                kbList.innerHTML = '';
+                result.data.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'kb-item';
+                    div.innerHTML = `<strong>Q:</strong> ${item.title} <br><strong>A:</strong> ${item.content}`;
+                    kbList.appendChild(div);
                 });
+            }
+        } catch (err) {
+            console.error('Error loading KB:', err);
+        }
+    }
 
-                const result = await response.json();
-                if (result.success) {
-                    alert('Q&A Saved successfully to Supabase!');
-                    document.getElementById('kb-q').value = '';
-                    document.getElementById('kb-a').value = '';
-                    loadKB(); 
+    async function loadRecentEscalations() {
+        try {
+            const { data, error } = await supabase
+                .from('conversations')
+                .select('message, visitor_id')
+                .eq('status', 'escalated')
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (error) {
+                console.error("Supabase escalation fetch error:", error);
+                return;
+            }
+
+            const alertText = document.getElementById('escalation-alert-text');
+            if (alertText) {
+                if (data && data.length > 0 && data[0].message) {
+                    const latest = data[0];
+                    const visitorId = latest.visitor_id || '1029';
+                    alertText.innerHTML = `Store Visitor #${visitorId} — <em>"${latest.message}"</em>`;
                 } else {
-                    alert('Error saving data: ' + (result.error || 'Unknown error'));
+                    alertText.innerHTML = `Store Visitor #1029 — <em>"No active escalation messages found."</em>`;
                 }
-            } catch (err) {
-                alert('Network error while saving');
             }
+        } catch (err) {
+            console.error("Dashboard Fetch Catch Error:", err);
         }
+    }
 
-        async function loadAnalytics() {
-            try {
-                const res = await fetch('/api/analytics');
-                const result = await res.json();
-                if (result.success) {
-                    const statValues = document.querySelectorAll('.stat-value');
-                    if (statValues.length >= 3) {
-                        statValues[0].textContent = result.totalConversations;
-                        statValues[1].textContent = result.resolutionRate;
-                        statValues[2].textContent = result.escalations;
-                    }
+    async function saveQA() {
+        const q = document.getElementById('kb-q').value.trim();
+        const a = document.getElementById('kb-a').value.trim();
+        if(!q || !a) return alert('Please enter both question and answer');
+
+        try {
+            const response = await fetch('/api/knowledge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: q, content: a })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert('Q&A Saved successfully to Supabase!');
+                document.getElementById('kb-q').value = '';
+                document.getElementById('kb-a').value = '';
+                loadKB(); 
+            } else {
+                alert('Error saving data: ' + (result.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Network error while saving');
+        }
+    }
+
+    async function loadAnalytics() {
+        try {
+            const res = await fetch('/api/analytics');
+            const result = await res.json();
+            if (result.success) {
+                const statValues = document.querySelectorAll('.stat-value');
+                if (statValues.length >= 3) {
+                    statValues[0].textContent = result.totalConversations;
+                    statValues[1].textContent = result.resolutionRate;
+                    statValues[2].textContent = result.escalations;
                 }
-            } catch (err) {
-                console.error('Error loading analytics:', err);
             }
+        } catch (err) {
+            console.error('Error loading analytics:', err);
         }
+    }
 
-        window.onload = function() {
-            loadKB();
-            loadAnalytics();
-        };
+    window.onload = function() {
+        loadKB();
+        loadAnalytics();
+        loadRecentEscalations();
+        setInterval(loadRecentEscalations, 3000);
+    };
 
-        function openPayment() {
-            alert('Redirecting to Payment Gateway for ₹499/month Pro Subscription...');
-        }
-    </script>
+    function openPayment() {
+        alert('Redirecting to Payment Gateway for ₹499/month Pro Subscription...');
+    }
+</script>
 </body>
 </html>
