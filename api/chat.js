@@ -37,29 +37,52 @@ export default async function handler(req, res) {
             isEscalated = true;
         } else if (lowerMsg.includes('refund') || lowerMsg.includes('return')) {
             reply = "We offer a full 14-day money-back guarantee on all orders.";
+            isEscalated = false;
         } else if (lowerMsg.includes('shipping') || lowerMsg.includes('delivery')) {
             reply = "Standard shipping takes 3 to 5 business days.";
+            isEscalated = false;
         } else {
-            // 2. Gemini API Call
-            const apiKey = process.env.GEMINI_API_KEY;
-            if (apiKey) {
-                try {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: `You are HelpPilot AI, a helpful e-commerce customer support assistant. Answer concisely in 1-2 sentences.\nUser Question: ${message}`
-                                }]
-                            }]
-                        })
-                    });
+            // 2. Check Supabase Knowledge Base First
+            try {
+                const { data: kbData } = await supabase
+                    .from('knowledge_base')
+                    .select('*');
+                
+                if (kbData && kbData.length > 0) {
+                    const matched = kbData.find(item => 
+                        lowerMsg.includes((item.question || '').toLowerCase()) ||
+                        (item.question || '').toLowerCase().includes(lowerMsg)
+                    );
+                    if (matched) {
+                        reply = matched.answer;
+                    }
+                }
+            } catch (kbErr) {
+                console.error("KB Fetch Error:", kbErr);
+            }
 
-                    const data = await response.json();
-                    reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                } catch (err) {
-                    console.error("Gemini Fetch Error:", err);
+            // If not found in KB, call Gemini API
+            if (!reply) {
+                const apiKey = process.env.GEMINI_API_KEY;
+                if (apiKey) {
+                    try {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{
+                                    parts: [{
+                                        text: `You are HelpPilot AI, a helpful e-commerce customer support assistant. Answer concisely in 1-2 sentences.\nUser Question: ${message}`
+                                    }]
+                                }]
+                            })
+                        });
+
+                        const data = await response.json();
+                        reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    } catch (err) {
+                        console.error("Gemini Fetch Error:", err);
+                    }
                 }
             }
 
@@ -69,13 +92,13 @@ export default async function handler(req, res) {
             }
         }
 
-        // 3. Save Conversation / Escalation to Supabase
-     // 3. Save Conversation / Escalation to Supabase
+        // 3. Save Conversation / Escalation to Supabase (with message)
         try {
             await supabase.from('conversations').insert([
                 {
                     app_id: workspaceId || 'default',
                     visitor_id: 'visitor_1029',
+                    message: message,
                     status: isEscalated ? 'escalated' : 'active'
                 }
             ]);
