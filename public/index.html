@@ -133,7 +133,7 @@
 <body>
 
 <header>
-    <a href="#" class="brand-logo">🤖 HelpPilot <span>AI</span></a>
+    <a href="/" class="brand-logo">🤖 HelpPilot <span>AI</span></a>
     <div class="nav-right" id="user-status">
         <span id="trial-badge" class="status-badge">🟢 System Active</span>
         <button id="logout-btn" onclick="handleLogout()" class="btn-secondary hidden" style="width: auto; padding: 6px 14px; font-size: 12px;">Logout</button>
@@ -305,6 +305,7 @@
 
     let currentAppId = 'default';
     let isSuperAdmin = false;
+    let isTestEnvironment = false;
 
     function sendAdminAlert(eventType, appId, details) {
         emailjs.send("service_62n44sb", "template_0fhbn9n", {
@@ -326,7 +327,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const currentPath = window.location.pathname;
 
-        // 1. Super Admin Check
+        // 1. Super Admin Deep-Link Router
         if (urlParams.get('admin') === 'true' || currentPath.includes('admin')) {
             currentAppId = 'devansh_admin';
             isSuperAdmin = true;
@@ -336,8 +337,9 @@
             return;
         }
 
-        // 2. Test Portal Check
+        // 2. Widget Test Portal Deep-Link Router
         if (currentPath.includes('test')) {
+            isTestEnvironment = true;
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('dashboard-section').classList.remove('hidden');
             document.getElementById('workspace-title').innerText = 'Widget Test Portal (Live Preview)';
@@ -346,7 +348,7 @@
             return;
         }
 
-        // 3. Normal User Session Check
+        // 3. Main Platform Session Manager
         const savedAppId = localStorage.getItem('helppilot_app_id');
         const savedStoreName = localStorage.getItem('helppilot_store_name');
 
@@ -504,7 +506,7 @@
         localStorage.removeItem('helppilot_app_id');
         localStorage.removeItem('helppilot_store_name');
         if (supabaseClient) await supabaseClient.auth.signOut();
-        window.location.href = window.location.pathname; 
+        window.location.href = '/'; 
     }
 
     function showDashboard(storeTitle) {
@@ -528,11 +530,13 @@
         }
 
         loadDashboardData();
-        setInterval(loadDashboardData, 4000);
+        setInterval(() => {
+            if (!isTestEnvironment) loadDashboardData();
+        }, 4000);
     }
 
     async function checkTrialStatus(appId) {
-        if (!supabaseClient) return;
+        if (!supabaseClient || isTestEnvironment) return;
         try {
             const { data: approvedPay } = await supabaseClient.from('payments').select('*').eq('app_id', appId).eq('status', 'approved').order('created_at', { ascending: false }).limit(1);
             
@@ -584,7 +588,7 @@
     }
 
     async function loadDashboardData() {
-        if (!supabaseClient) return;
+        if (!supabaseClient || isTestEnvironment) return;
 
         try {
             let kbQuery = supabaseClient.from('knowledge_base').select('*');
