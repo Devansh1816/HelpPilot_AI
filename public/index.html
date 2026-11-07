@@ -89,7 +89,7 @@
         }
 
         .copy-btn { background: #1e293b; color: #fff; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; flex-shrink: 0; margin-left: 10px; }
-        .kb-item, .chat-item { background: #07090e; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+        .kb-item, .chat-item, .payment-item { background: #07090e; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
         .hidden { display: none !important; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; display: flex; justify-content: center; align-items: center; padding: 20px; }
@@ -209,6 +209,13 @@
         </div>
     </div>
 
+    <!-- Admin Panel HTML Added Here -->
+    <div id="admin-payments-panel" class="panel-card hidden">
+        <div class="panel-title" style="color: #4ade80;">💳 Pending Pro Upgrades (Admin Control)</div>
+        <div class="panel-subtitle">Submitted UTR numbers from users for Pro subscription verification.</div>
+        <div id="payment-requests-list" style="margin-top: 12px;">Loading payment requests...</div>
+    </div>
+
     <div class="panel-card">
         <div class="panel-title">📚 Step 1: Knowledge Base Training</div>
         <div class="panel-subtitle">Add your store policies.</div>
@@ -305,22 +312,22 @@
 
     function closePaymentModal() { document.getElementById('payment-modal').classList.add('hidden'); }
 
-  async function submitPaymentUTR() {
-    const utr = document.getElementById('payment-utr').value;
-    if (!utr || utr.length < 6) return alert("Please enter a valid 12-digit UTR/Transaction Reference Number!");
-    
-    if (supabaseClient) {
-        const { error } = await supabaseClient.from('payments').insert([
-            { app_id: currentAppId, utr_number: utr, status: 'pending' }
-        ]);
-        if (error) {
-            console.error("Payment save error:", error);
+    async function submitPaymentUTR() {
+        const utr = document.getElementById('payment-utr').value;
+        if (!utr || utr.length < 6) return alert("Please enter a valid 12-digit UTR/Transaction Reference Number!");
+        
+        if (supabaseClient) {
+            const { error } = await supabaseClient.from('payments').insert([
+                { app_id: currentAppId, utr_number: utr, status: 'pending' }
+            ]);
+            if (error) {
+                console.error("Payment save error:", error);
+            }
         }
-    }
 
-    alert("Payment UTR Submitted Successfully! Devansh will verify and activate your Pro plan within 5 minutes.");
-    closePaymentModal();
-}
+        alert("Payment UTR Submitted Successfully! Devansh will verify and activate your Pro plan within 5 minutes.");
+        closePaymentModal();
+    }
 
     async function handleSignUp() {
         const storeName = document.getElementById('auth-store').value || 'My Store';
@@ -365,6 +372,8 @@
         if (isSuperAdmin || ['devansh_admin', 'helppilot_admin'].includes(currentAppId)) {
             document.getElementById('trial-badge').innerHTML = '🟢 Pro Account (Super Admin)';
             document.getElementById('plan-status-text').innerText = 'Active Plan: Enterprise Pro (Unlimited)';
+            const adminPanel = document.getElementById('admin-payments-panel');
+            if (adminPanel) adminPanel.classList.remove('hidden');
         } else {
             checkTrialStatus(currentAppId);
         }
@@ -402,6 +411,13 @@
         loadDashboardData();
     }
 
+    async function approveProUser(paymentId, appId) {
+        if (!supabaseClient) return;
+        await supabaseClient.from('payments').update({ status: 'approved' }).eq('id', paymentId);
+        alert(`Account '${appId}' successfully activated to Pro Plan!`);
+        loadDashboardData();
+    }
+
     async function loadDashboardData() {
         if (!supabaseClient) return;
 
@@ -412,6 +428,21 @@
             if (!isSuperAdmin) {
                 kbQuery = kbQuery.eq('app_id', currentAppId);
                 chatQuery = chatQuery.eq('app_id', currentAppId);
+            } else {
+                const { data: payData } = await supabaseClient.from('payments').select('*').order('created_at', { ascending: false });
+                if (payData && document.getElementById('payment-requests-list')) {
+                    document.getElementById('payment-requests-list').innerHTML = payData.map(p => `
+                        <div class="payment-item" style="display: flex; justify-content: space-between; align-items: center; border-left: 3px solid ${p.status === 'approved' ? '#10b981' : '#f59e0b'}; margin-bottom: 8px;">
+                            <div>
+                                <div style="font-size: 13px; font-weight: 700;">App ID: ${p.app_id}</div>
+                                <div style="font-size: 12px; color: var(--text-sub);">UTR: <strong>${p.utr_number}</strong> | Date: ${new Date(p.created_at).toLocaleString()}</div>
+                            </div>
+                            <div>
+                                ${p.status === 'approved' ? '<span style="color: #10b981; font-weight: bold; font-size: 12px;">✅ Approved</span>' : `<button class="btn-success" style="padding: 4px 10px; font-size: 11px; width: auto;" onclick="approveProUser(${p.id}, '${p.app_id}')">Approve & Activate Pro</button>`}
+                            </div>
+                        </div>
+                    `).join('') || '<p style="color: var(--text-sub); font-size: 12px;">No payment submissions yet.</p>';
+                }
             }
 
             const { data: kbData } = await kbQuery;
