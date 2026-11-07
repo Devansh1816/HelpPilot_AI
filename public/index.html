@@ -322,48 +322,31 @@
         }).catch(err => console.error("User email error:", err));
     }
 
-window.onload = async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentPath = window.location.pathname;
+    window.onload = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentPath = window.location.pathname;
 
-    // 1. Super Admin Check
-    if (urlParams.get('admin') === 'true' || currentPath.includes('admin')) {
-        currentAppId = 'devansh_admin';
-        isSuperAdmin = true;
-        localStorage.setItem('helppilot_app_id', currentAppId);
-        localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
-        showDashboard("Super Admin Control (Devansh)");
-        return;
-    }
+        // 1. Super Admin Check
+        if (urlParams.get('admin') === 'true' || currentPath.includes('admin')) {
+            currentAppId = 'devansh_admin';
+            isSuperAdmin = true;
+            localStorage.setItem('helppilot_app_id', currentAppId);
+            localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
+            showDashboard("Super Admin Control (Devansh)");
+            return;
+        }
 
-    // 2. Test Portal Check
-    if (currentPath.includes('test')) {
-        document.getElementById('auth-section').classList.add('hidden');
-        document.getElementById('dashboard-section').classList.remove('hidden');
-        document.getElementById('workspace-title').innerText = 'Widget Test Portal (Live Preview)';
-        document.getElementById('plan-status-text').innerText = 'Testing Environment Active';
-        document.getElementById('user-status').querySelector('#logout-btn').classList.remove('hidden');
-        return;
-    }
+        // 2. Test Portal Check
+        if (currentPath.includes('test')) {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            document.getElementById('workspace-title').innerText = 'Widget Test Portal (Live Preview)';
+            document.getElementById('plan-status-text').innerText = 'Testing Environment Active';
+            document.getElementById('user-status').querySelector('#logout-btn').classList.remove('hidden');
+            return;
+        }
 
-    // 3. Normal User Session Check
-    const savedAppId = localStorage.getItem('helppilot_app_id');
-    const savedStoreName = localStorage.getItem('helppilot_store_name');
-
-    if (savedAppId && savedStoreName) {
-        currentAppId = savedAppId;
-        if (savedAppId === 'devansh_admin') isSuperAdmin = true;
-        showDashboard(savedStoreName);
-    } else if (supabaseClient) {
-        try {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session) {
-                setupDashboardUser(session.user);
-            }
-        } catch (err) {}
-    }
-};
-
+        // 3. Normal User Session Check
         const savedAppId = localStorage.getItem('helppilot_app_id');
         const savedStoreName = localStorage.getItem('helppilot_store_name');
 
