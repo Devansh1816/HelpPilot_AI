@@ -6,6 +6,13 @@
     <title>HelpPilot AI | Enterprise Customer Support Automation</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- EmailJS Library -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script type="text/javascript">
+       (function(){
+          emailjs.init("bTDBoB9uK-IemQdnm");
+       })();
+    </script>
     <style>
         :root {
             --bg-dark: #07090e;
@@ -282,6 +289,24 @@
     let currentAppId = 'default';
     let isSuperAdmin = false;
 
+    // 1. Admin Alert Function
+    function sendAdminAlert(eventType, appId, details) {
+        emailjs.send("service_62n44sb", "template_0fhbn9n", {
+            event_type: eventType,
+            app_id: appId,
+            details: details
+        }).catch(err => console.error("Admin email error:", err));
+    }
+
+    // 2. User Welcome Email Function
+    function sendUserWelcomeEmail(userEmail, storeName, appId) {
+        emailjs.send("service_62n44sb", "template_8u5kp4o", {
+            to_email: userEmail,
+            user_name: storeName,
+            app_id: appId
+        }).catch(err => console.error("User email error:", err));
+    }
+
     window.onload = async () => {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('admin') === 'true') {
@@ -330,6 +355,9 @@
             }
         }
 
+        // Send Email Notification to Admin
+        sendAdminAlert('New UTR Payment Submitted', currentAppId, 'UTR Number: ' + utr);
+
         alert("Payment UTR Submitted Successfully! Devansh will verify and activate your Pro plan within 5 minutes.");
         closePaymentModal();
         checkTrialStatus(currentAppId);
@@ -347,6 +375,13 @@
         currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
         localStorage.setItem('helppilot_app_id', currentAppId);
         localStorage.setItem('helppilot_store_name', storeName);
+
+        // 1. Send Alert to Admin Email
+        sendAdminAlert('New Store Sign Up', currentAppId, `Store: ${storeName}, Email: ${email}`);
+        
+        // 2. Send Welcome Email to User Email
+        sendUserWelcomeEmail(email, storeName, currentAppId);
+
         showDashboard(storeName);
     }
 
