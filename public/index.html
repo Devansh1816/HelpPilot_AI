@@ -209,7 +209,6 @@
         </div>
     </div>
 
-    <!-- Admin Panel HTML Added Here -->
     <div id="admin-payments-panel" class="panel-card hidden">
         <div class="panel-title" style="color: #4ade80;">💳 Pending Pro Upgrades (Admin Control)</div>
         <div class="panel-subtitle">Submitted UTR numbers from users for Pro subscription verification.</div>
@@ -292,7 +291,13 @@
             return;
         }
 
-        if (supabaseClient) {
+        const savedAppId = localStorage.getItem('helppilot_app_id');
+        const savedStoreName = localStorage.getItem('helppilot_store_name');
+
+        if (savedAppId && savedStoreName) {
+            currentAppId = savedAppId;
+            showDashboard(savedStoreName);
+        } else if (supabaseClient) {
             try {
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (session) setupDashboard(session.user);
@@ -332,6 +337,8 @@
     async function handleSignUp() {
         const storeName = document.getElementById('auth-store').value || 'My Store';
         currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
+        localStorage.setItem('helppilot_app_id', currentAppId);
+        localStorage.setItem('helppilot_store_name', storeName);
         showDashboard(storeName);
     }
 
@@ -345,11 +352,17 @@
             showDashboard("Super Admin Control (Devansh)");
         } else {
             currentAppId = 'royal_fashion_101';
+            localStorage.setItem('helppilot_app_id', currentAppId);
+            localStorage.setItem('helppilot_store_name', storeName);
             showDashboard(storeName);
         }
     }
 
-    function handleLogout() { window.location.href = window.location.pathname; }
+    function handleLogout() { 
+        localStorage.removeItem('helppilot_app_id');
+        localStorage.removeItem('helppilot_store_name');
+        window.location.href = window.location.pathname; 
+    }
 
     async function setupDashboard(user) {
         if (!supabaseClient) return;
@@ -357,6 +370,8 @@
         if (ws) {
             currentAppId = ws.app_id;
             if (currentAppId === 'devansh_admin' || user.email === 'devanshtripathi217@gmail.com') isSuperAdmin = true;
+            localStorage.setItem('helppilot_app_id', currentAppId);
+            localStorage.setItem('helppilot_store_name', ws.store_name);
             showDashboard(ws.store_name);
         } else { showDashboard("My Store"); }
     }
@@ -385,6 +400,14 @@
     async function checkTrialStatus(appId) {
         if (!supabaseClient) return;
         try {
+            const { data: approvedPay } = await supabaseClient.from('payments').select('*').eq('app_id', appId).eq('status', 'approved').limit(1);
+            
+            if (approvedPay && approvedPay.length > 0) {
+                document.getElementById('trial-badge').innerHTML = '⚡ Pro Account Active';
+                document.getElementById('plan-status-text').innerText = 'Active Plan: Pro Autopilot (₹499/mo)';
+                return;
+            }
+
             const { data } = await supabaseClient.from('conversations').select('created_at').eq('app_id', appId).order('created_at', { ascending: true }).limit(1);
             if (data && data.length > 0) {
                 const startDate = new Date(data[0].created_at);
