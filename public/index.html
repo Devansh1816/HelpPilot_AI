@@ -6,7 +6,6 @@
     <title>HelpPilot AI | Enterprise Customer Support Automation</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- EmailJS Library -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
        (function(){
@@ -18,6 +17,7 @@
             --bg-dark: #07090e;
             --card-bg: #0f172a;
             --accent: #6366f1;
+            --accent-hover: #4f46e5;
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
             --border: #1e293b;
@@ -30,92 +30,104 @@
             width: 100%; overflow-x: hidden; background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column;
         }
 
+        /* Modern SaaS Navbar */
         header {
-            display: flex; justify-content: space-between; align-items: center; padding: 14px 5%; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; width: 100%;
+            display: flex; justify-content: space-between; align-items: center; padding: 18px 8%; background: rgba(7, 9, 14, 0.8); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; width: 100%;
         }
 
-        .brand-logo { font-size: 18px; font-weight: 800; color: #fff; text-decoration: none; }
+        .brand-logo { font-size: 20px; font-weight: 800; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 8px; }
         .brand-logo span { color: var(--accent); }
 
+        .nav-right { display: flex; align-items: center; gap: 16px; }
         .status-badge {
-            padding: 4px 10px; border-radius: 30px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); white-space: nowrap;
+            padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); white-space: nowrap;
         }
 
-        .landing-wrapper {
-            max-width: 1100px; width: 100%; margin: 30px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center; flex: 1;
+        /* Hero / Landing Section */
+        .hero-section {
+            max-width: 1100px; width: 100%; margin: 50px auto 30px auto; padding: 0 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px;
         }
 
-        .landing-info { display: flex; flex-direction: column; gap: 16px; }
-        .hero-tag { background: rgba(99, 102, 241, 0.1); color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; width: fit-content; border: 1px solid rgba(99, 102, 241, 0.2); }
-        .landing-info h1 { font-size: 36px; font-weight: 800; line-height: 1.2; color: #fff; }
-        .landing-info h1 span { background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .landing-info p { color: var(--text-sub); font-size: 14px; line-height: 1.5; }
+        .hero-tag { background: rgba(99, 102, 241, 0.1); color: var(--accent); padding: 6px 16px; border-radius: 30px; font-size: 12px; font-weight: 700; border: 1px solid rgba(99, 102, 241, 0.2); text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .hero-section h1 { font-size: 44px; font-weight: 800; line-height: 1.15; color: #fff; max-width: 800px; }
+        .hero-section h1 span { background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .hero-section p { color: var(--text-sub); font-size: 16px; line-height: 1.6; max-width: 650px; }
 
-        .auth-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; }
-        .auth-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-        .auth-card p { color: var(--text-sub); font-size: 13px; margin-bottom: 18px; }
+        .hero-cta-group { display: flex; gap: 12px; margin-top: 10px; }
+        .btn-hero-primary { background: var(--accent); color: #fff; padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 14px; border: none; cursor: pointer; transition: background 0.2s; }
+        .btn-hero-primary:hover { background: var(--accent-hover); }
+        .btn-hero-secondary { background: transparent; color: #fff; padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; border: 1px solid var(--border); cursor: pointer; }
 
-        .input-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-        .input-group label { font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase; }
+        /* Auth Console Box */
+        .auth-container { max-width: 480px; width: 100%; margin: 20px auto 50px auto; padding: 0 20px; }
+        .auth-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+        .auth-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; color: #fff; }
+        .auth-card p { color: var(--text-sub); font-size: 13px; margin-bottom: 24px; }
+
+        .input-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; text-align: left; }
+        .input-group label { font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; }
 
         input[type="text"], input[type="email"], input[type="password"], textarea {
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: #07090e; color: #fff; font-size: 14px; outline: none;
+            width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: #07090e; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s;
         }
+        input:focus, textarea:focus { border-color: var(--accent); }
 
-        .btn-primary { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; }
-        .btn-secondary { width: 100%; padding: 12px; background: #1e293b; color: #fff; border: 1px solid var(--border); border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
-        .btn-success { width: 100%; padding: 12px; background: var(--success); color: #fff; border: none; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; }
+        .btn-primary { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary { width: 100%; padding: 12px; background: #1e293b; color: #fff; border: 1px solid var(--border); border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; }
+        .btn-success { width: 100%; padding: 12px; background: var(--success); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; }
 
-        .auth-actions { display: flex; gap: 10px; margin-top: 6px; }
+        .auth-actions { display: flex; gap: 10px; margin-top: 8px; }
 
-        .pricing-section { max-width: 1100px; margin: 40px auto; padding: 0 20px; width: 100%; text-align: center; }
-        .pricing-title { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
-        .pricing-subtitle { color: var(--text-sub); font-size: 14px; margin-bottom: 30px; }
-        .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; }
-        .price-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 24px; position: relative; }
-        .price-card.featured { border-color: var(--accent); box-shadow: 0 0 20px rgba(99, 102, 241, 0.2); }
-        .popular-badge { position: absolute; top: -12px; right: 20px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; }
-        .plan-name { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
-        .plan-price { font-size: 32px; font-weight: 800; margin-bottom: 16px; }
+        /* Pricing Section */
+        .pricing-section { max-width: 1000px; margin: 40px auto 60px auto; padding: 0 20px; width: 100%; text-align: center; }
+        .pricing-title { font-size: 32px; font-weight: 800; margin-bottom: 10px; }
+        .pricing-subtitle { color: var(--text-sub); font-size: 15px; margin-bottom: 40px; }
+        .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; text-align: left; }
+        .price-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 30px; position: relative; }
+        .price-card.featured { border-color: var(--accent); box-shadow: 0 0 30px rgba(99, 102, 241, 0.15); }
+        .popular-badge { position: absolute; top: -14px; right: 24px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; letter-spacing: 0.5px; }
+        .plan-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .plan-price { font-size: 36px; font-weight: 800; margin-bottom: 20px; }
         .plan-price span { font-size: 14px; color: var(--text-sub); font-weight: 500; }
-        .plan-features { list-style: none; margin-bottom: 24px; }
-        .plan-features li { font-size: 13px; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .plan-features { list-style: none; margin-bottom: 28px; }
+        .plan-features li { font-size: 14px; color: #cbd5e1; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
 
-        .dashboard-container { max-width: 1100px; width: 100%; margin: 20px auto; padding: 0 16px; }
-        .dashboard-header { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
-        .stat-card { background: var(--card-bg); border: 1px solid var(--border); padding: 18px; border-radius: 12px; }
-        .stat-card-title { font-size: 11px; color: var(--text-sub); text-transform: uppercase; }
-        .stat-card-value { font-size: 26px; font-weight: 800; color: #fff; margin-top: 4px; }
-        .panel-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-        .panel-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-        .panel-subtitle { font-size: 12px; color: var(--text-sub); margin-bottom: 14px; }
+        /* Dashboard Styles */
+        .dashboard-container { max-width: 1100px; width: 100%; margin: 30px auto; padding: 0 20px; }
+        .dashboard-header { background: var(--card-bg); padding: 24px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--card-bg); border: 1px solid var(--border); padding: 20px; border-radius: 16px; }
+        .stat-card-title { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card-value { font-size: 28px; font-weight: 800; color: #fff; margin-top: 6px; }
+        .panel-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+        .panel-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+        .panel-subtitle { font-size: 13px; color: var(--text-sub); margin-bottom: 16px; }
 
         code.code-block {
-            display: flex; justify-content: space-between; align-items: center; background: #07090e; padding: 12px; border-radius: 8px; border: 1px solid #1e293b; color: #4ade80; font-family: monospace; font-size: 12px; word-break: break-all;
+            display: flex; justify-content: space-between; align-items: center; background: #07090e; padding: 14px; border-radius: 10px; border: 1px solid #1e293b; color: #4ade80; font-family: monospace; font-size: 12px; word-break: break-all;
         }
 
-        .copy-btn { background: #1e293b; color: #fff; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; flex-shrink: 0; margin-left: 10px; }
-        .kb-item, .chat-item, .payment-item { background: #07090e; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+        .copy-btn { background: #1e293b; color: #fff; border: 1px solid #334155; padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; flex-shrink: 0; margin-left: 12px; }
+        .kb-item, .chat-item, .payment-item { background: #07090e; border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
         .hidden { display: none !important; }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; display: flex; justify-content: center; align-items: center; padding: 20px; }
-        .modal-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 24px; max-width: 440px; width: 100%; text-align: center; max-height: 90vh; overflow-y: auto; }
+        /* Modal Box */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 200; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .modal-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 28px; max-width: 440px; width: 100%; text-align: center; max-height: 90vh; overflow-y: auto; }
 
         .qr-card {
-            background: #ffffff;
-            padding: 12px;
-            border-radius: 12px;
-            display: inline-block;
-            margin: 10px 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            background: #ffffff; padding: 12px; border-radius: 14px; display: inline-block; margin: 12px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
         .qr-card img { width: 160px; height: 160px; display: block; border-radius: 6px; }
 
         @media screen and (max-width: 768px) {
-            .landing-wrapper, .pricing-grid { grid-template-columns: 1fr !important; }
-            .landing-info h1 { font-size: 26px !important; }
-            .dashboard-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+            .pricing-grid { grid-template-columns: 1fr !important; }
+            .hero-section h1 { font-size: 32px !important; }
+            .dashboard-header { flex-direction: column; gap: 14px; align-items: flex-start; }
+            header { padding: 16px 5%; }
         }
     </style>
 </head>
@@ -123,23 +135,27 @@
 
 <header>
     <a href="#" class="brand-logo">🤖 HelpPilot <span>AI</span></a>
-    <div id="user-status" style="display: flex; align-items: center;">
+    <div class="nav-right" id="user-status">
         <span id="trial-badge" class="status-badge">🟢 System Active</span>
-        <button id="logout-btn" onclick="handleLogout()" class="btn-secondary hidden" style="width: auto; padding: 4px 12px; margin-left: 10px; font-size: 12px;">Logout</button>
+        <button id="logout-btn" onclick="handleLogout()" class="btn-secondary hidden" style="width: auto; padding: 6px 14px; font-size: 12px;">Logout</button>
     </div>
 </header>
 
 <div id="auth-section">
-    <div class="landing-wrapper">
-        <div class="landing-info">
-            <span class="hero-tag">⚡ Next-Gen Customer Automation</span>
-            <h1>Scale Customer Support with <span>AI Autopilot</span></h1>
-            <p>Integrates into your e-commerce store in 60 seconds. Train your knowledge base and resolve 80% of visitor queries automatically.</p>
+    <div class="hero-section">
+        <span class="hero-tag">⚡ Next-Gen Customer Automation</span>
+        <h1>Visual workflows for modern <span>Customer Support</span></h1>
+        <p>Design, automate, and control customer support logic using AI-powered workflows. Train your knowledge base and resolve 80% of visitor queries automatically.</p>
+        <div class="hero-cta-group">
+            <button class="btn-hero-primary" onclick="scrollToAuth()">Get Started Free</button>
+            <button class="btn-hero-secondary" onclick="scrollToPricing()">View Pricing</button>
         </div>
+    </div>
 
+    <div class="auth-container" id="auth-box-anchor">
         <div class="auth-card">
             <h2>Store Owner Console</h2>
-            <p>Access your workspace or launch a 14-day trial.</p>
+            <p>Access your workspace or launch your 14-day trial.</p>
             <div class="input-group">
                 <label>Work Email</label>
                 <input type="email" id="auth-email" placeholder="e.g. owner@mystore.com">
@@ -159,7 +175,7 @@
         </div>
     </div>
 
-    <div class="pricing-section">
+    <div class="pricing-section" id="pricing-anchor">
         <h2 class="pricing-title">Simple, Transparent Pricing</h2>
         <p class="pricing-subtitle">Start with a 14-day free trial. Upgrade anytime to automate support completely.</p>
         
@@ -198,7 +214,7 @@
             <h2 id="workspace-title" style="font-size: 20px;">Workspace Console</h2>
             <span id="plan-status-text" style="font-size: 12px; color: var(--text-sub);">Active Plan: 14-Day Free Trial</span>
         </div>
-        <button id="upgrade-btn" class="btn-success" style="width: auto; padding: 8px 16px; font-size: 13px;" onclick="openPaymentModal()">⚡ Upgrade to Pro (₹499/mo)</button>
+        <button id="upgrade-btn" class="btn-success" style="width: auto; padding: 10px 18px; font-size: 13px;" onclick="openPaymentModal()">⚡ Upgrade to Pro (₹499/mo)</button>
     </div>
 
     <div class="stats-grid">
@@ -233,7 +249,7 @@
             <label>Answer / Resolution Policy</label>
             <textarea id="kb-answer" rows="3" placeholder="e.g. 7-day return policy."></textarea>
         </div>
-        <button class="btn-primary" style="width: auto; padding: 10px 18px;" onclick="addKBEntry()">Save KB Entry</button>
+        <button class="btn-primary" style="width: auto; padding: 10px 20px;" onclick="addKBEntry()">Save KB Entry</button>
         <div id="kb-list" style="margin-top: 16px;"></div>
     </div>
 
@@ -256,14 +272,14 @@
         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">Upgrade to Pro Plan</h3>
         <p style="color: var(--text-sub); font-size: 13px; margin-bottom: 14px;">Get unlimited AI responses & 24/7 Autopilot support for ₹499/month.</p>
         
-        <div style="background: #07090e; padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 14px; text-align: center;">
-            <div style="font-size: 11px; color: var(--text-sub);">OPTION 1: SCAN QR CODE</div>
+        <div style="background: #07090e; padding: 16px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 16px; text-align: center;">
+            <div style="font-size: 11px; color: var(--text-sub); letter-spacing: 0.5px;">OPTION 1: SCAN QR CODE</div>
             <div class="qr-card">
                 <img src="qr.png" alt="Scan to Pay ₹499" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=upi://pay?pa=9140241099@ptsbi&pn=HelpPilotAI&am=499&cu=INR';">
             </div>
             
-            <div style="font-size: 11px; color: var(--text-sub); margin-top: 8px;">OPTION 2: PAY VIA UPI ID</div>
-            <div style="font-size: 13px; font-weight: 700; color: #6366f1; margin-top: 2px;">9140241099@ptsbi</div>
+            <div style="font-size: 11px; color: var(--text-sub); margin-top: 8px; letter-spacing: 0.5px;">OPTION 2: PAY VIA UPI ID</div>
+            <div style="font-size: 14px; font-weight: 700; color: #6366f1; margin-top: 4px;">9140241099@ptsbi</div>
             <p style="font-size: 11px; color: #94a3b8; margin-top: 6px;">Pay ₹499 using GPay, PhonePe, or Paytm.</p>
         </div>
 
@@ -272,7 +288,7 @@
             <input type="text" id="payment-utr" placeholder="Enter 12-digit UTR Number">
         </div>
 
-        <button class="btn-success" style="margin-bottom: 8px;" onclick="submitPaymentUTR()">Submit UTR for Instant Upgrade</button>
+        <button class="btn-success" style="margin-bottom: 10px;" onclick="submitPaymentUTR()">Submit UTR for Instant Upgrade</button>
         <button class="btn-secondary" onclick="closePaymentModal()">Cancel</button>
     </div>
 </div>
@@ -289,7 +305,6 @@
     let currentAppId = 'default';
     let isSuperAdmin = false;
 
-    // 1. Admin Alert Function
     function sendAdminAlert(eventType, appId, details) {
         emailjs.send("service_62n44sb", "template_0fhbn9n", {
             event_type: eventType,
@@ -298,7 +313,6 @@
         }).catch(err => console.error("Admin email error:", err));
     }
 
-    // 2. User Welcome Email Function
     function sendUserWelcomeEmail(userEmail, storeName, appId) {
         emailjs.send("service_62n44sb", "template_8u5kp4o", {
             to_email: userEmail,
@@ -326,7 +340,13 @@
         }
     };
 
-    function scrollToAuth() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    function scrollToAuth() { 
+        document.getElementById('auth-box-anchor').scrollIntoView({ behavior: 'smooth' }); 
+    }
+
+    function scrollToPricing() {
+        document.getElementById('pricing-anchor').scrollIntoView({ behavior: 'smooth' });
+    }
 
     function openPaymentModal() {
         if (FUTURE_PAYMENT_LINK !== "") {
@@ -358,7 +378,6 @@
         checkTrialStatus(currentAppId);
     }
 
-    // Secure Supabase Sign Up
     async function handleSignUp() {
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value.trim();
@@ -376,7 +395,6 @@
             return alert("Database connection error!");
         }
 
-        // Supabase Real Auth Signup
         const { data, error } = await supabaseClient.auth.signUp({
             email: email,
             password: password
@@ -388,12 +406,10 @@
 
         currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
 
-        // Optional workspace mapping save in Supabase
         await supabaseClient.from('workspaces').insert([
             { user_id: data.user ? data.user.id : null, app_id: currentAppId, store_name: storeName }
         ]).catch(e => {});
 
-        // Send Email Notifications
         sendAdminAlert('New Store Sign Up', currentAppId, `Store: ${storeName}, Email: ${email}`);
         sendUserWelcomeEmail(email, storeName, currentAppId);
 
@@ -401,7 +417,6 @@
         showDashboard(storeName);
     }
 
-    // Secure Supabase Login
     async function handleLogin() {
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value.trim();
@@ -459,7 +474,7 @@
     function showDashboard(storeTitle) {
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
-        document.getElementById('logout-btn').classList.remove('hidden');
+        document.getElementById('user-status').querySelector('#logout-btn').classList.remove('hidden');
 
         document.getElementById('workspace-title').innerText = `Workspace: ${storeTitle}`;
         document.getElementById('embed-code-display').innerText = `<script src="https://helppilotai.vercel.app/widget.js" data-app-id="${currentAppId}"><\/script>`;
