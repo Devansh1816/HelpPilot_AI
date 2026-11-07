@@ -334,8 +334,15 @@
         closePaymentModal();
     }
 
-    async function handleSignUp() {
-        const storeName = document.getElementById('auth-store').value || 'My Store';
+async function handleSignUp() {
+        const email = document.getElementById('auth-email').value.trim();
+        const storeName = document.getElementById('auth-store').value.trim();
+        const password = document.getElementById('auth-password').value.trim();
+
+        if (!email || !password || !storeName) {
+            return alert("Kripya Email, Password aur Store Name teeno fill karein!");
+        }
+
         currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
         localStorage.setItem('helppilot_app_id', currentAppId);
         localStorage.setItem('helppilot_store_name', storeName);
@@ -343,21 +350,26 @@
     }
 
     async function handleLogin() {
-        const email = document.getElementById('auth-email').value || 'demo@store.com';
-        const storeName = document.getElementById('auth-store').value || 'Royal Fashion';
-        
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value.trim();
+        const storeName = document.getElementById('auth-store').value.trim();
+
+        if (!email || !password) {
+            return alert("Kripya Email aur Password enter karein!");
+        }
+
         if (email.includes('devansh') || email === 'devanshtripathi217@gmail.com') {
             currentAppId = 'devansh_admin';
             isSuperAdmin = true;
             showDashboard("Super Admin Control (Devansh)");
         } else {
-            currentAppId = 'royal_fashion_101';
+            const finalStore = storeName || 'My Workspace';
+            currentAppId = finalStore.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_store';
             localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', storeName);
-            showDashboard(storeName);
+            localStorage.setItem('helppilot_store_name', finalStore);
+            showDashboard(finalStore);
         }
     }
-
     function handleLogout() { 
         localStorage.removeItem('helppilot_app_id');
         localStorage.removeItem('helppilot_store_name');
