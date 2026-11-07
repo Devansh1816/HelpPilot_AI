@@ -146,7 +146,7 @@
             </div>
             <div class="input-group">
                 <label>Password</label>
-                <input type="password" id="auth-password" placeholder="Enter password">
+                <input type="password" id="auth-password" placeholder="Enter password (min 6 chars)">
             </div>
             <div class="input-group">
                 <label>Store Name</label>
@@ -316,16 +316,12 @@
             return;
         }
 
-        const savedAppId = localStorage.getItem('helppilot_app_id');
-        const savedStoreName = localStorage.getItem('helppilot_store_name');
-
-        if (savedAppId && savedStoreName) {
-            currentAppId = savedAppId;
-            showDashboard(savedStoreName);
-        } else if (supabaseClient) {
+        if (supabaseClient) {
             try {
                 const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) setupDashboard(session.user);
+                if (session) {
+                    setupDashboardUser(session.user);
+                }
             } catch (err) {}
         }
     };
@@ -355,7 +351,6 @@
             }
         }
 
-        // Send Email Notification to Admin
         sendAdminAlert('New UTR Payment Submitted', currentAppId, 'UTR Number: ' + utr);
 
         alert("Payment UTR Submitted Successfully! Devansh will verify and activate your Pro plan within 5 minutes.");
@@ -363,66 +358,102 @@
         checkTrialStatus(currentAppId);
     }
 
+    // Secure Supabase Sign Up
     async function handleSignUp() {
         const email = document.getElementById('auth-email').value.trim();
-        const storeName = document.getElementById('auth-store').value.trim();
         const password = document.getElementById('auth-password').value.trim();
+        const storeName = document.getElementById('auth-store').value.trim();
 
         if (!email || !password || !storeName) {
             return alert("Kripya Email, Password aur Store Name teeno fill karein!");
         }
 
-        currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
-        localStorage.setItem('helppilot_app_id', currentAppId);
-        localStorage.setItem('helppilot_store_name', storeName);
+        if (password.length < 6) {
+            return alert("Password kam se kam 6 characters ka hona chahiye!");
+        }
 
-        // 1. Send Alert to Admin Email
+        if (!supabaseClient) {
+            return alert("Database connection error!");
+        }
+
+        // Supabase Real Auth Signup
+        const { data, error } = await supabaseClient.auth.signUp({
+            email: email,
+            password: password
+        });
+
+        if (error) {
+            return alert("Signup Failed: " + error.message);
+        }
+
+        currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
+
+        // Optional workspace mapping save in Supabase
+        await supabaseClient.from('workspaces').insert([
+            { user_id: data.user ? data.user.id : null, app_id: currentAppId, store_name: storeName }
+        ]).catch(e => {});
+
+        // Send Email Notifications
         sendAdminAlert('New Store Sign Up', currentAppId, `Store: ${storeName}, Email: ${email}`);
-        
-        // 2. Send Welcome Email to User Email
         sendUserWelcomeEmail(email, storeName, currentAppId);
 
+        alert("Account Created Successfully! Welcome to HelpPilot AI.");
         showDashboard(storeName);
     }
 
+    // Secure Supabase Login
     async function handleLogin() {
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value.trim();
-        const storeName = document.getElementById('auth-store').value.trim();
 
         if (!email || !password) {
             return alert("Kripya Email aur Password enter karein!");
         }
 
-        if (email.includes('devansh') || email === 'devanshtripathi217@gmail.com') {
+        if (email === 'devanshtripathi217@gmail.com') {
             currentAppId = 'devansh_admin';
             isSuperAdmin = true;
             showDashboard("Super Admin Control (Devansh)");
-        } else {
-            const finalStore = storeName || 'My Workspace';
-            currentAppId = finalStore.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_store';
-            localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', finalStore);
-            showDashboard(finalStore);
+            return;
         }
+
+        if (!supabaseClient) {
+            return alert("Database connection error!");
+        }
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+
+        if (error) {
+            return alert("Login Failed: " + error.message);
+        }
+
+        setupDashboardUser(data.user);
     }
 
-    function handleLogout() { 
-        localStorage.removeItem('helppilot_app_id');
-        localStorage.removeItem('helppilot_store_name');
-        window.location.href = window.location.pathname; 
-    }
-
-    async function setupDashboard(user) {
+    async function setupDashboardUser(user) {
         if (!supabaseClient) return;
+        if (user.email === 'devanshtripathi217@gmail.com') {
+            currentAppId = 'devansh_admin';
+            isSuperAdmin = true;
+            showDashboard("Super Admin Control (Devansh)");
+            return;
+        }
+
         const { data: ws } = await supabaseClient.from('workspaces').select('*').eq('user_id', user.id).single();
         if (ws) {
             currentAppId = ws.app_id;
-            if (currentAppId === 'devansh_admin' || user.email === 'devanshtripathi217@gmail.com') isSuperAdmin = true;
-            localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', ws.store_name);
             showDashboard(ws.store_name);
-        } else { showDashboard("My Store"); }
+        } else {
+            showDashboard("My Workspace");
+        }
+    }
+
+    async function handleLogout() { 
+        if (supabaseClient) await supabaseClient.auth.signOut();
+        window.location.href = window.location.pathname; 
     }
 
     function showDashboard(storeTitle) {
