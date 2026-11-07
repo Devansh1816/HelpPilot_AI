@@ -191,7 +191,7 @@
             <h2 id="workspace-title" style="font-size: 20px;">Workspace Console</h2>
             <span id="plan-status-text" style="font-size: 12px; color: var(--text-sub);">Active Plan: 14-Day Free Trial</span>
         </div>
-        <button class="btn-success" style="width: auto; padding: 8px 16px; font-size: 13px;" onclick="openPaymentModal()">⚡ Upgrade to Pro (₹499/mo)</button>
+        <button id="upgrade-btn" class="btn-success" style="width: auto; padding: 8px 16px; font-size: 13px;" onclick="openPaymentModal()">⚡ Upgrade to Pro (₹499/mo)</button>
     </div>
 
     <div class="stats-grid">
@@ -318,7 +318,7 @@
     function closePaymentModal() { document.getElementById('payment-modal').classList.add('hidden'); }
 
     async function submitPaymentUTR() {
-        const utr = document.getElementById('payment-utr').value;
+        const utr = document.getElementById('payment-utr').value.trim();
         if (!utr || utr.length < 6) return alert("Please enter a valid 12-digit UTR/Transaction Reference Number!");
         
         if (supabaseClient) {
@@ -332,9 +332,10 @@
 
         alert("Payment UTR Submitted Successfully! Devansh will verify and activate your Pro plan within 5 minutes.");
         closePaymentModal();
+        checkTrialStatus(currentAppId);
     }
 
-async function handleSignUp() {
+    async function handleSignUp() {
         const email = document.getElementById('auth-email').value.trim();
         const storeName = document.getElementById('auth-store').value.trim();
         const password = document.getElementById('auth-password').value.trim();
@@ -370,6 +371,7 @@ async function handleSignUp() {
             showDashboard(finalStore);
         }
     }
+
     function handleLogout() { 
         localStorage.removeItem('helppilot_app_id');
         localStorage.removeItem('helppilot_store_name');
@@ -401,6 +403,8 @@ async function handleSignUp() {
             document.getElementById('plan-status-text').innerText = 'Active Plan: Enterprise Pro (Unlimited)';
             const adminPanel = document.getElementById('admin-payments-panel');
             if (adminPanel) adminPanel.classList.remove('hidden');
+            const upBtn = document.getElementById('upgrade-btn');
+            if(upBtn) upBtn.classList.add('hidden');
         } else {
             checkTrialStatus(currentAppId);
         }
@@ -412,12 +416,20 @@ async function handleSignUp() {
     async function checkTrialStatus(appId) {
         if (!supabaseClient) return;
         try {
-            const { data: approvedPay } = await supabaseClient.from('payments').select('*').eq('app_id', appId).eq('status', 'approved').limit(1);
+            const { data: approvedPay } = await supabaseClient.from('payments').select('*').eq('app_id', appId).eq('status', 'approved').order('created_at', { ascending: false }).limit(1);
             
             if (approvedPay && approvedPay.length > 0) {
-                document.getElementById('trial-badge').innerHTML = '⚡ Pro Account Active';
-                document.getElementById('plan-status-text').innerText = 'Active Plan: Pro Autopilot (₹499/mo)';
-                return;
+                const approvalDate = new Date(approvedPay[0].created_at);
+                const daysPassed = Math.floor((new Date() - approvalDate) / (1000 * 60 * 60 * 24));
+                const daysRemaining = Math.max(0, 30 - daysPassed);
+
+                if (daysRemaining > 0) {
+                    document.getElementById('trial-badge').innerHTML = '⚡ Pro Account Active';
+                    document.getElementById('plan-status-text').innerText = `Active Plan: Pro Autopilot (${daysRemaining} Days Left)`;
+                    const upBtn = document.getElementById('upgrade-btn');
+                    if (upBtn) upBtn.innerText = '⚡ Pro Active (₹499/mo)';
+                    return;
+                }
             }
 
             const { data } = await supabaseClient.from('conversations').select('created_at').eq('app_id', appId).order('created_at', { ascending: true }).limit(1);
@@ -448,8 +460,8 @@ async function handleSignUp() {
 
     async function approveProUser(paymentId, appId) {
         if (!supabaseClient) return;
-        await supabaseClient.from('payments').update({ status: 'approved' }).eq('id', paymentId);
-        alert(`Account '${appId}' successfully activated to Pro Plan!`);
+        await supabaseClient.from('payments').update({ status: 'approved', created_at: new Date() }).eq('id', paymentId);
+        alert(`Account '${appId}' successfully activated to Pro Plan for 30 Days!`);
         loadDashboardData();
     }
 
@@ -463,6 +475,7 @@ async function handleSignUp() {
             if (!isSuperAdmin) {
                 kbQuery = kbQuery.eq('app_id', currentAppId);
                 chatQuery = chatQuery.eq('app_id', currentAppId);
+                checkTrialStatus(currentAppId);
             } else {
                 const { data: payData } = await supabaseClient.from('payments').select('*').order('created_at', { ascending: false });
                 if (payData && document.getElementById('payment-requests-list')) {
@@ -473,7 +486,7 @@ async function handleSignUp() {
                                 <div style="font-size: 12px; color: var(--text-sub);">UTR: <strong>${p.utr_number}</strong> | Date: ${new Date(p.created_at).toLocaleString()}</div>
                             </div>
                             <div>
-                                ${p.status === 'approved' ? '<span style="color: #10b981; font-weight: bold; font-size: 12px;">✅ Approved</span>' : `<button class="btn-success" style="padding: 4px 10px; font-size: 11px; width: auto;" onclick="approveProUser(${p.id}, '${p.app_id}')">Approve & Activate Pro</button>`}
+                                ${p.status === 'approved' ? '<span style="color: #10b981; font-weight: bold; font-size: 12px;">✅ Approved (30 Days Active)</span>' : `<button class="btn-success" style="padding: 4px 10px; font-size: 11px; width: auto;" onclick="approveProUser(${p.id}, '${p.app_id}')">Approve & Activate Pro</button>`}
                             </div>
                         </div>
                     `).join('') || '<p style="color: var(--text-sub); font-size: 12px;">No payment submissions yet.</p>';
