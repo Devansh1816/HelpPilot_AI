@@ -30,7 +30,6 @@
             width: 100%; overflow-x: hidden; background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column;
         }
 
-        /* Modern SaaS Navbar */
         header {
             display: flex; justify-content: space-between; align-items: center; padding: 18px 8%; background: rgba(7, 9, 14, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; width: 100%;
         }
@@ -43,7 +42,6 @@
             padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); white-space: nowrap;
         }
 
-        /* Hero / Landing Section */
         .hero-section {
             max-width: 1100px; width: 100%; margin: 50px auto 30px auto; padding: 0 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px;
         }
@@ -60,7 +58,6 @@
         .btn-hero-primary:hover { background: var(--accent-hover); }
         .btn-hero-secondary { background: transparent; color: #fff; padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; border: 1px solid var(--border); cursor: pointer; }
 
-        /* Auth Console Box */
         .auth-container { max-width: 480px; width: 100%; margin: 20px auto 50px auto; padding: 0 20px; }
         .auth-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
         .auth-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; color: #fff; }
@@ -81,7 +78,6 @@
 
         .auth-actions { display: flex; gap: 10px; margin-top: 8px; }
 
-        /* Pricing Section */
         .pricing-section { max-width: 1000px; margin: 40px auto 60px auto; padding: 0 20px; width: 100%; text-align: center; }
         .pricing-title { font-size: 32px; font-weight: 800; margin-bottom: 10px; }
         .pricing-subtitle { color: var(--text-sub); font-size: 15px; margin-bottom: 40px; }
@@ -95,7 +91,6 @@
         .plan-features { list-style: none; margin-bottom: 28px; }
         .plan-features li { font-size: 14px; color: #cbd5e1; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
 
-        /* Professional Dashboard Styles (Matching SaaS Aesthetics) */
         .dashboard-container { max-width: 1100px; width: 100%; margin: 30px auto; padding: 0 20px; }
         .dashboard-header { background: var(--card-bg); padding: 28px; border-radius: 20px; border: 1px solid var(--border); margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
         
@@ -119,7 +114,6 @@
         .kb-item, .chat-item, .payment-item { background: #07090e; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
         .hidden { display: none !important; }
 
-        /* Modal Box */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 200; display: flex; justify-content: center; align-items: center; padding: 20px; }
         .modal-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 32px; max-width: 440px; width: 100%; text-align: center; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.7); }
 
@@ -333,11 +327,20 @@
         if (urlParams.get('admin') === 'true') {
             currentAppId = 'devansh_admin';
             isSuperAdmin = true;
+            localStorage.setItem('helppilot_app_id', currentAppId);
+            localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
             showDashboard("Super Admin Control (Devansh)");
             return;
         }
 
-        if (supabaseClient) {
+        const savedAppId = localStorage.getItem('helppilot_app_id');
+        const savedStoreName = localStorage.getItem('helppilot_store_name');
+
+        if (savedAppId && savedStoreName) {
+            currentAppId = savedAppId;
+            if (savedAppId === 'devansh_admin') isSuperAdmin = true;
+            showDashboard(savedStoreName);
+        } else if (supabaseClient) {
             try {
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (session) {
@@ -412,6 +415,8 @@
         }
 
         currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
+        localStorage.setItem('helppilot_app_id', currentAppId);
+        localStorage.setItem('helppilot_store_name', storeName);
 
         await supabaseClient.from('workspaces').insert([
             { user_id: data.user ? data.user.id : null, app_id: currentAppId, store_name: storeName }
@@ -435,6 +440,8 @@
         if (email === 'devanshtripathi217@gmail.com') {
             currentAppId = 'devansh_admin';
             isSuperAdmin = true;
+            localStorage.setItem('helppilot_app_id', currentAppId);
+            localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
             showDashboard("Super Admin Control (Devansh)");
             return;
         }
@@ -460,6 +467,8 @@
         if (user.email === 'devanshtripathi217@gmail.com') {
             currentAppId = 'devansh_admin';
             isSuperAdmin = true;
+            localStorage.setItem('helppilot_app_id', currentAppId);
+            localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
             showDashboard("Super Admin Control (Devansh)");
             return;
         }
@@ -467,13 +476,19 @@
         const { data: ws } = await supabaseClient.from('workspaces').select('*').eq('user_id', user.id).single();
         if (ws) {
             currentAppId = ws.app_id;
+            localStorage.setItem('helppilot_app_id', currentAppId);
+            localStorage.setItem('helppilot_store_name', ws.store_name);
             showDashboard(ws.store_name);
         } else {
+            localStorage.setItem('helppilot_app_id', 'my_store');
+            localStorage.setItem('helppilot_store_name', 'My Workspace');
             showDashboard("My Workspace");
         }
     }
 
     async function handleLogout() { 
+        localStorage.removeItem('helppilot_app_id');
+        localStorage.removeItem('helppilot_store_name');
         if (supabaseClient) await supabaseClient.auth.signOut();
         window.location.href = window.location.pathname; 
     }
@@ -486,7 +501,8 @@
         document.getElementById('workspace-title').innerText = `Workspace: ${storeTitle}`;
         document.getElementById('embed-code-display').innerText = `<script src="https://helppilotai.vercel.app/widget.js" data-app-id="${currentAppId}"><\/script>`;
 
-        if (isSuperAdmin || ['devansh_admin', 'helppilot_admin'].includes(currentAppId)) {
+        if (isSuperAdmin || currentAppId === 'devansh_admin' || ['devansh_admin', 'helppilot_admin'].includes(currentAppId)) {
+            isSuperAdmin = true;
             document.getElementById('trial-badge').innerHTML = '🟢 Pro Account (Super Admin)';
             document.getElementById('plan-status-text').innerText = 'Active Plan: Enterprise Pro (Unlimited)';
             const adminPanel = document.getElementById('admin-payments-panel');
