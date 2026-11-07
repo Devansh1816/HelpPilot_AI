@@ -305,13 +305,22 @@
 
     function closePaymentModal() { document.getElementById('payment-modal').classList.add('hidden'); }
 
-    function submitPaymentUTR() {
-        const utr = document.getElementById('payment-utr').value;
-        if (!utr || utr.length < 6) return alert("Please enter a valid 12-digit UTR/Transaction Reference Number!");
-        
-        alert("Payment UTR Submitted Successfully! Devansh will verify and activate your Pro plan within 5 minutes.");
-        closePaymentModal();
+  async function submitPaymentUTR() {
+    const utr = document.getElementById('payment-utr').value;
+    if (!utr || utr.length < 6) return alert("Please enter a valid 12-digit UTR/Transaction Reference Number!");
+    
+    if (supabaseClient) {
+        const { error } = await supabaseClient.from('payments').insert([
+            { app_id: currentAppId, utr_number: utr, status: 'pending' }
+        ]);
+        if (error) {
+            console.error("Payment save error:", error);
+        }
     }
+
+    alert("Payment UTR Submitted Successfully! Devansh will verify and activate your Pro plan within 5 minutes.");
+    closePaymentModal();
+}
 
     async function handleSignUp() {
         const storeName = document.getElementById('auth-store').value || 'My Store';
