@@ -3,7 +3,7 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/widget.js", "destination": "/public/widget.js" },
-    { "source": "/test", "destination": "/public/test.html" }
+    { "source": "/widget.js", "destination": "/widget.js" },
+    { "source": "/test", "destination": "/test.html" }
   ]
 }
