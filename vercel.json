@@ -4,7 +4,7 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/widget.js", "destination": "/widget.js" },
-    { "source": "/test", "destination": "/test.html" },
+    { "source": "/test", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
