@@ -1,0 +1,125 @@
+
+import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  const url = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !anonKey || !serviceKey) {
+    return res.status(500).json({
+      error: 'Server configuration error.'
+    });
+  }
+
+  const token = (req.headers.authorization || '').startsWith('Bearer ')
+    ? req.headers.authorization.slice(7)
+    : '';
+
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
+
+  const authClient = createClient(url, anonKey);
+  const { data: authData, error: authError } =
+    await authClient.auth.getUser(token);
+
+  if (authError || !authData?.user) {
+    return res.status(401).json({
+      error: 'Invalid or expired session.'
+    });
+  }
+
+  const user = authData.user;
+  const admin = createClient(url, serviceKey);
+
+  try {
+    const { data: existing, error: lookupError } = await admin
+      .from('workspaces')
+      .select('id, app_id, app_uuid, store_name')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
+
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        workspace: existing,
+        alreadyExists: true
+      });
+    }
+
+    const storeName =
+      typeof req.body?.storeName === 'string'
+        ? req.body.storeName.trim()
+        : '';
+
+    if (!storeName || storeName.length > 100) {
+      return res.status(400).json({
+        error: 'Enter a valid store name.'
+      });
+    }
+
+    const appId = `store_${randomUUID()}`;
+    const publicAppId = randomUUID();
+
+    const { data: app, error: appError } = await admin
+      .from('apps')
+      .insert({
+        app_name: storeName,
+        user_id: user.id,
+        public_app_id: publicAppId,
+        is_active: true
+      })
+      .select('id')
+      .single();
+
+    if (appError) throw appError;
+
+    const { data: workspace, error: workspaceError } = await admin
+      .from('workspaces')
+      .insert({
+        user_id: user.id,
+        app_id: appId,
+        app_uuid: app.id,
+        store_name: storeName
+      })
+      .select('id, app_id, app_uuid, store_name')
+      .single();
+
+    if (workspaceError) {
+      const { error: cleanupError } = await admin
+        .from('apps')
+        .delete()
+        .eq('id', app.id)
+        .eq('user_id', user.id);
+
+      if (cleanupError) {
+        console.error('App cleanup failed:', cleanupError);
+      }
+
+      throw workspaceError;
+    }
+
+    return res.status(201).json({
+      success: true,
+      workspace,
+      publicAppId
+    });
+
+  } catch (error) {
+    console.error('Workspace creation error:', error);
+
+    return res.status(500).json({
+      error: 'Unable to create workspace.'
+    });
+  }
+}
