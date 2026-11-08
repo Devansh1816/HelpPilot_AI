@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ymvhnwcteeonvwhhoksd.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltdmhud2N0ZWVvbnZ3aGhva3NkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2MzI0OTksImV4cCI6MjA0NjIwODQ5OX0.4x95Uj5L2j-09Gz7bN9YkXJ-qJbY'; // Fallback Key
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi'; // Fallback Key
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
