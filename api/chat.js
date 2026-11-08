@@ -169,7 +169,24 @@ export default async function handler(req, res) {
     const knowledgeContext = (kbEntries || [])
       .map(item => `Topic: ${item.title}\nInformation: ${item.content}`)
       .join('\n\n');
+// Answer exact FAQ matches without depending on Gemini.
+const normalizeText = text =>
+  text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 
+const normalizedQuestion = normalizeText(cleanMsg);
+
+const exactFaq = (kbEntries || []).find(
+  item => normalizeText(item.title) === normalizedQuestion
+);
+
+if (exactFaq) {
+  await saveLog(supabase, app, cleanVisitorId, cleanMsg, 'active');
+
+  return res.status(200).json({
+    reply: exactFaq.content,
+    status: 'active'
+  });
+}
     // Use Gemini when configured.
     if (GEMINI_API_KEY) {
       try {
