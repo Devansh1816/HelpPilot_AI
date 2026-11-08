@@ -404,47 +404,76 @@
         checkTrialStatus(currentAppId);
     }
 
-    async function handleSignUp() {
-        const email = document.getElementById('auth-email').value.trim();
-        const password = document.getElementById('auth-password').value.trim();
-        const storeName = document.getElementById('auth-store').value.trim();
+   async function handleSignUp() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value.trim();
+    const storeName = document.getElementById('auth-store').value.trim();
 
-        if (!email || !password || !storeName) {
-            return alert("Kripya Email, Password aur Store Name teeno fill karein!");
-        }
-
-        if (password.length < 6) {
-            return alert("Password kam se kam 6 characters ka hona chahiye!");
-        }
-
-        if (!supabaseClient) {
-            return alert("Database connection error!");
-        }
-
-        const { data, error } = await supabaseClient.auth.signUp({
-            email: email,
-            password: password
-        });
-
-        if (error) {
-            return alert("Signup Failed: " + error.message);
-        }
-
-        currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
-        localStorage.setItem('helppilot_app_id', currentAppId);
-        localStorage.setItem('helppilot_store_name', storeName);
-
-        await supabaseClient.from('workspaces').insert([
-            { user_id: data.user ? data.user.id : null, app_id: currentAppId, store_name: storeName }
-        ]).catch(e => {});
-
-        sendAdminAlert('New Store Sign Up', currentAppId, `Store: ${storeName}, Email: ${email}`);
-        sendUserWelcomeEmail(email, storeName, currentAppId);
-
-        alert("Account Created Successfully! Welcome to HelpPilot AI.");
-        showDashboard(storeName);
+    if (!email || !password || !storeName) {
+        return alert('Please enter email, password and store name.');
     }
 
+    if (password.length < 6) {
+        return alert('Password must contain at least 6 characters.');
+    }
+
+    if (!supabaseClient) {
+        return alert('Database connection error.');
+    }
+
+    try {
+        const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password
+        });
+
+        if (error) throw error;
+
+        if (!data.user || !data.session) {
+            return alert(
+                'Account created. Please complete email verification or log in before creating your workspace.'
+            );
+        }
+
+        const response = await fetch('/api/workspaces', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${data.session.access_token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ storeName })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success || !result.publicAppId) {
+            throw new Error(result.error || 'Workspace creation failed.');
+        }
+
+        currentAppId = result.workspace.app_id;
+        isSuperAdmin = false;
+
+        localStorage.setItem('helppilot_app_id', currentAppId);
+        localStorage.setItem('helppilot_store_name', result.workspace.store_name);
+        localStorage.setItem('helppilot_public_app_id', result.publicAppId);
+
+        sendAdminAlert(
+            'New Store Sign Up',
+            currentAppId,
+            `Store: ${storeName}, Email: ${email}`
+        );
+
+        sendUserWelcomeEmail(email, storeName, currentAppId);
+
+        alert('Account created successfully! Welcome to HelpPilot AI.');
+
+        await setupDashboardUser(data.user);
+
+    } catch (error) {
+        console.error('Signup error:', error);
+        alert(error.message || 'Unable to create your account.');
+    }
+}
     async function handleLogin() {
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value.trim();
