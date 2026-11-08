@@ -1,39 +1,60 @@
-import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    process.env.SUPABASE_URL, 
-    process.env.SUPABASE_ANON_KEY,
-    { db: { schema: 'public' } }
-);
+import { verifyOwner } from '../lib/server-auth.js';
 
 export default async function handler(req, res) {
-    if (req.method === 'GET') {
-        try {
-            const { data, error, count } = await supabase
-                .from('conversations')
-                .select('*', { count: 'exact' });
-            
-            if (error) throw error;
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return res.status(405).json({
+      success: false,
+      error: 'Method not allowed.'
+    });
+  }
 
-            const total = count !== null ? count : (data ? data.length : 0);
-            const escalations = data ? data.filter(item => item.status === 'escalated').length : 0;
+  const auth = await verifyOwner(req);
 
-            let resolutionRate = '100%';
-            if (total > 0) {
-                const resolved = total - escalations;
-                resolutionRate = ((resolved / total) * 100).toFixed(1) + '%';
-            }
+  if (!auth.ok) {
+    return res.status(auth.status).json({
+      success: false,
+      error: auth.error
+    });
+  }
 
-            return res.status(200).json({ 
-                success: true, 
-                totalConversations: total, 
-                resolutionRate: resolutionRate, 
-                escalations: escalations 
-            });
-        } catch (err) {
-            return res.status(500).json({ success: false, error: err.message });
-        }
-    }
-    res.setHeader('Allow', ['GET']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+  try {
+    const { count: total, error: totalError } = await auth.supabase
+      .from('conversations')
+      .select('id', { count: 'exact', head: true });
+
+    if (totalError) throw totalError;
+
+    const { count: escalations, error: escalationError } =
+      await auth.supabase
+        .from('conversations')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'escalated');
+
+    if (escalationError) throw escalationError;
+
+    const totalConversations = total ?? 0;
+    const escalationCount = escalations ?? 0;
+    const resolved = Math.max(0, totalConversations - escalationCount);
+
+    const resolutionRate = totalConversations === 0
+      ? '0%'
+      : `${((resolved / totalConversations) * 100).toFixed(1)}%`;
+
+    return res.status(200).json({
+      success: true,
+      totalConversations,
+      resolutionRate,
+      escalations: escalationCount
+    });
+
+  } catch (error) {
+    console.error('Analytics API error:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to load analytics.'
+    });
+  }
 }
