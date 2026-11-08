@@ -49,13 +49,35 @@ export default async function handler(req, res) {
 
     if (lookupError) throw lookupError;
 
-    if (existing) {
-      return res.status(200).json({
-        success: true,
-        workspace: existing,
-        alreadyExists: true
-      });
-    }
+   if (existing) {
+  if (!existing.app_uuid) {
+    return res.status(409).json({
+      error: 'Workspace has no verified app mapping.'
+    });
+  }
+
+  const { data: existingApp, error: appLookupError } = await admin
+    .from('apps')
+    .select('public_app_id, is_active')
+    .eq('id', existing.app_uuid)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (appLookupError) throw appLookupError;
+
+  if (!existingApp || !existingApp.public_app_id) {
+    return res.status(409).json({
+      error: 'Workspace app mapping is incomplete.'
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    workspace: existing,
+    publicAppId: existingApp.public_app_id,
+    alreadyExists: true
+  });
+}
 
     const storeName =
       typeof req.body?.storeName === 'string'
