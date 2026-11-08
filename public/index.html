@@ -478,30 +478,58 @@
         setupDashboardUser(data.user);
     }
 
-    async function setupDashboardUser(user) {
-        if (!supabaseClient) return;
-        if (user.email === 'devanshtripathi217@gmail.com') {
-            currentAppId = 'devansh_admin';
-            isSuperAdmin = true;
-            localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
-            showDashboard("Super Admin Control (Devansh)");
-            return;
-        }
-
-        const { data: ws } = await supabaseClient.from('workspaces').select('*').eq('user_id', user.id).single();
-        if (ws) {
-            currentAppId = ws.app_id;
-            localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', ws.store_name);
-            showDashboard(ws.store_name);
-        } else {
-            localStorage.setItem('helppilot_app_id', 'my_store');
-            localStorage.setItem('helppilot_store_name', 'My Workspace');
-            showDashboard("My Workspace");
-        }
+   async function setupDashboardUser(user) {
+    if (!supabaseClient || !user) {
+        alert('Authentication required. Please log in again.');
+        return;
     }
 
+    try {
+        const { data: sessionData } =
+            await supabaseClient.auth.getSession();
+
+        const token = sessionData?.session?.access_token;
+
+        if (!token) {
+            throw new Error('Your session has expired. Please log in again.');
+        }
+
+        const response = await fetch('/api/workspaces', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success || !result.workspace) {
+            throw new Error(result.error || 'Workspace not found.');
+        }
+
+        const workspace = result.workspace;
+
+        if (!workspace.app_uuid || !result.publicAppId) {
+            throw new Error('Workspace application mapping is incomplete.');
+        }
+
+        currentAppId = workspace.app_id;
+        isSuperAdmin = false;
+
+        localStorage.setItem('helppilot_app_id', currentAppId);
+        localStorage.setItem('helppilot_store_name', workspace.store_name);
+        localStorage.setItem('helppilot_public_app_id', result.publicAppId);
+
+        showDashboard(workspace.store_name);
+
+    } catch (error) {
+        console.error('Workspace loading error:', error);
+        alert(error.message || 'Unable to load your workspace.');
+        await supabaseClient.auth.signOut();
+        window.location.href = '/';
+    }
+}
     async function handleLogout() { 
         localStorage.removeItem('helppilot_app_id');
         localStorage.removeItem('helppilot_store_name');
