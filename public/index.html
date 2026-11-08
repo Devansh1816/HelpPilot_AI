@@ -926,6 +926,51 @@ async function loadPayments() {
     });
 }
 
+// Load secure conversation history.
+async function loadConversations() {
+    const result = await apiRequest('/api/conversations');
+    const list = el('chat-logs');
+
+    if (!list) return;
+
+    list.replaceChildren();
+
+    const conversations = result.data || [];
+
+    if (conversations.length === 0) {
+        list.textContent = 'No conversations recorded yet.';
+        return;
+    }
+
+    conversations.forEach(chat => {
+        const card = createTextElement('div', 'chat-item', '');
+
+        card.appendChild(createTextElement(
+            'div',
+            '',
+            `${new Date(chat.created_at).toLocaleString()} | Visitor: ${chat.visitor_id}`
+        ));
+
+        card.appendChild(createTextElement(
+            'div',
+            '',
+            `Message: ${chat.message || 'No message available'}`
+        ));
+
+        card.appendChild(createTextElement(
+            'div',
+            '',
+            `Status: ${chat.status || 'open'}`
+        ));
+
+        if (chat.status === 'escalated') {
+            card.style.borderLeft = '3px solid #f87171';
+        }
+
+        list.appendChild(card);
+    });
+}
+
 // Refresh dashboard data.
 async function loadDashboardData() {
     if (!currentToken) return;
@@ -938,13 +983,9 @@ async function loadDashboardData() {
         } else {
             await Promise.all([
                 loadKnowledgeBase(),
-                loadPayments()
+                loadPayments(),
+                loadConversations()
             ]);
-
-            setText(
-                'chat-logs',
-                'Conversation history will appear here once its secure API is connected.'
-            );
         }
 
     } catch (error) {
