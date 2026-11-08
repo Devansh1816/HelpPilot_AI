@@ -1,10 +1,9 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+  if (!['GET', 'POST'].includes(req.method)) {
+    res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
@@ -23,23 +22,26 @@ export default async function handler(req, res) {
     : '';
 
   if (!token) {
-    return res.status(401).json({ error: 'Authentication required.' });
-  }
-
-  const authClient = createClient(url, anonKey);
-  const { data: authData, error: authError } =
-    await authClient.auth.getUser(token);
-
-  if (authError || !authData?.user) {
     return res.status(401).json({
-      error: 'Invalid or expired session.'
+      error: 'Authentication required.'
     });
   }
 
-  const user = authData.user;
-  const admin = createClient(url, serviceKey);
-
   try {
+    const authClient = createClient(url, anonKey);
+
+    const { data: authData, error: authError } =
+      await authClient.auth.getUser(token);
+
+    if (authError || !authData?.user) {
+      return res.status(401).json({
+        error: 'Invalid or expired session.'
+      });
+    }
+
+    const user = authData.user;
+    const admin = createClient(url, serviceKey);
+
     const { data: existing, error: lookupError } = await admin
       .from('workspaces')
       .select('id, app_id, app_uuid, store_name')
@@ -49,35 +51,85 @@ export default async function handler(req, res) {
 
     if (lookupError) throw lookupError;
 
-   if (existing) {
-  if (!existing.app_uuid) {
-    return res.status(409).json({
-      error: 'Workspace has no verified app mapping.'
-    });
-  }
+    // GET: Retrieve the existing workspace.
+    if (req.method === 'GET') {
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          error: 'No workspace found for this account.'
+        });
+      }
 
-  const { data: existingApp, error: appLookupError } = await admin
-    .from('apps')
-    .select('public_app_id, is_active')
-    .eq('id', existing.app_uuid)
-    .eq('user_id', user.id)
-    .maybeSingle();
+      if (!existing.app_uuid) {
+        return res.status(409).json({
+          error: 'Workspace has no verified app mapping.'
+        });
+      }
 
-  if (appLookupError) throw appLookupError;
+      const { data: app, error: appError } = await admin
+        .from('apps')
+        .select('public_app_id, is_active')
+        .eq('id', existing.app_uuid)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-  if (!existingApp || !existingApp.public_app_id) {
-    return res.status(409).json({
-      error: 'Workspace app mapping is incomplete.'
-    });
-  }
+      if (appError) throw appError;
 
-  return res.status(200).json({
-    success: true,
-    workspace: existing,
-    publicAppId: existingApp.public_app_id,
-    alreadyExists: true
-  });
-}
+      if (!app || !app.public_app_id) {
+        return res.status(409).json({
+          error: 'Workspace app mapping is incomplete.'
+        });
+      }
+
+      if (!app.is_active) {
+        return res.status(403).json({
+          error: 'This application is inactive.'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        workspace: existing,
+        publicAppId: app.public_app_id
+      });
+    }
+
+    // POST: Create a workspace if one does not exist.
+    if (existing) {
+      if (!existing.app_uuid) {
+        return res.status(409).json({
+          error: 'Workspace has no verified app mapping.'
+        });
+      }
+
+      const { data: app, error: appError } = await admin
+        .from('apps')
+        .select('public_app_id, is_active')
+        .eq('id', existing.app_uuid)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (appError) throw appError;
+
+      if (!app || !app.public_app_id) {
+        return res.status(409).json({
+          error: 'Workspace app mapping is incomplete.'
+        });
+      }
+
+      if (!app.is_active) {
+        return res.status(403).json({
+          error: 'This application is inactive.'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        workspace: existing,
+        publicAppId: app.public_app_id,
+        alreadyExists: true
+      });
+    }
 
     const storeName =
       typeof req.body?.storeName === 'string'
@@ -138,10 +190,10 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Workspace creation error:', error);
+    console.error('Workspace API error:', error);
 
     return res.status(500).json({
-      error: 'Unable to create workspace.'
+      error: 'Unable to process workspace request.'
     });
   }
 }
