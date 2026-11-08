@@ -208,31 +208,32 @@ CUSTOMER MESSAGE:
 ${cleanMsg}
 `;
 
-        const aiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              contents: [{
+     const aiResponse = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
+    {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': GEMINI_API_KEY
+        },
+        body: JSON.stringify({
+            contents: [{
                 parts: [{ text: prompt }]
-              }]
-            })
-          }
-        );
+            }]
+        })
+    }
+);
 
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
+const aiData = await aiResponse.json();
 
-          reply = aiData?.candidates?.[0]?.content?.parts
-            ?.map(part => part.text || '')
-            .join('')
-            .trim() || '';
-        } else {
-          console.error('Gemini API returned:', aiResponse.status);
-        }
+if (aiResponse.ok) {
+    reply = aiData.candidates?.[0]?.content?.parts
+        ?.map(part => part.text || '')
+        .join('')
+        .trim() || '';
+} else {
+    console.error('Gemini API error:', aiResponse.status, aiData);
+}
       } catch (aiError) {
         console.error('Gemini request error:', aiError);
       }
