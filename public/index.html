@@ -154,7 +154,7 @@
     <div class="auth-container" id="auth-box-anchor">
         <div class="auth-card">
             <h2>Store Owner Console</h2>
-            <p>Access your workspace or launch your 14-day trial.</p>
+            <p>Access your workspace or start your free trial.</p>
             <div class="input-group">
                 <label>Work Email</label>
                 <input type="email" id="auth-email" placeholder="e.g. owner@mystore.com">
@@ -171,17 +171,20 @@
                 <button class="btn-primary" onclick="handleSignUp()">Sign Up</button>
                 <button class="btn-secondary" onclick="handleLogin()">Login</button>
             </div>
+            <p style="text-align:center;margin-top:12px;font-size:12px;">
+                <a href="#" onclick="handleForgotPassword(); return false;" style="color:#6366f1;">Forgot password?</a>
+            </p>
         </div>
     </div>
 
     <div class="pricing-section" id="pricing-anchor">
         <h2 class="pricing-title">Simple, Transparent Pricing</h2>
-        <p class="pricing-subtitle">Start with a 14-day free trial. Upgrade anytime to automate support completely.</p>
+        <p class="pricing-subtitle">Start free with 100 AI chats. Upgrade anytime to automate support completely.</p>
         
         <div class="pricing-grid">
             <div class="price-card">
-                <div class="plan-name">14-Day Free Trial</div>
-                <div class="plan-price">₹0 <span>/ 14 Days</span></div>
+                <div class="plan-name">Free Trial</div>
+                <div class="plan-price">₹0 <span>/ 100 chats</span></div>
                 <ul class="plan-features">
                     <li>✅ Up to 100 Automated Replies</li>
                     <li>✅ Single Store Workspace</li>
@@ -211,7 +214,7 @@
     <div class="dashboard-header">
         <div>
             <h2 id="workspace-title" style="font-size: 22px; font-weight: 800; color: #fff;">Workspace Console</h2>
-            <span id="plan-status-text" style="font-size: 13px; color: var(--text-sub); margin-top: 4px; display: block;">Active Plan: 14-Day Free Trial</span>
+            <span id="plan-status-text" style="font-size: 13px; color: var(--text-sub); margin-top: 4px; display: block;">Active Plan: Free Trial (100 chats)</span>
         </div>
         <button id="upgrade-btn" class="btn-success" style="width: auto; padding: 12px 20px; font-size: 13px;" onclick="openPaymentModal()">⚡ Upgrade to Pro (₹499/mo)</button>
     </div>
@@ -256,7 +259,7 @@
         <div class="panel-title">⚡ Step 2: Live Embed Code</div>
         <div class="panel-subtitle">Copy and paste this script tag into your website HTML footer.</div>
         <code class="code-block">
-            <span id="embed-code-display">&lt;script src="https://helppilotai.vercel.app/widget.js" data-app-id="my_store"&gt;&lt;/script&gt;</span>
+            <span id="embed-code-display">&lt;script src="https://YOUR-DOMAIN/widget.js" data-app-id="my_store"&gt;&lt;/script&gt;</span>
             <button class="copy-btn" onclick="copyEmbedCode()">Copy</button>
         </code>
     </div>
@@ -295,360 +298,810 @@
 </div>
 
 <script>
-    const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoksd.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi';
-    let supabaseClient = null;
+   const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoksd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi';
 
-    const FUTURE_PAYMENT_LINK = ""; 
+let supabaseClient = null;
+let currentAppId = null;
+let publicAppId = null;
+let currentToken = null;
+let currentWorkspace = null;
+let isSuperAdmin = false;
+let dashboardInterval = null;
 
-    try { if (window.supabase) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch (e) {}
+try {
+    if (window.supabase) {
+        supabaseClient = window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY
+        );
+    }
+} catch (error) {
+    console.error('Supabase initialization failed:', error);
+}
 
-    let currentAppId = 'default';
-    let isSuperAdmin = false;
-    let isTestEnvironment = false;
+const FUTURE_PAYMENT_LINK = '';
 
-    function sendAdminAlert(eventType, appId, details) {
-        emailjs.send("service_62n44sb", "template_0fhbn9n", {
-            event_type: eventType,
-            app_id: appId,
-            details: details
-        }).catch(err => console.error("Admin email error:", err));
+function el(id) {
+    return document.getElementById(id);
+}
+
+function setText(id, value) {
+    const element = el(id);
+    if (element) element.textContent = value ?? '';
+}
+
+function showMessage(message) {
+    alert(message);
+}
+
+function getAuthHeaders() {
+    if (!currentToken) {
+        throw new Error('Please log in again.');
     }
 
-    function sendUserWelcomeEmail(userEmail, storeName, appId) {
-        emailjs.send("service_62n44sb", "template_8u5kp4o", {
-            to_email: userEmail,
-            user_name: storeName,
-            app_id: appId
-        }).catch(err => console.error("User email error:", err));
-    }
-
-    window.onload = async () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const currentPath = window.location.pathname;
-
-        // 1. Super Admin Deep-Link Router
-        if (urlParams.get('admin') === 'true' || currentPath.includes('admin')) {
-            currentAppId = 'devansh_admin';
-            isSuperAdmin = true;
-            localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
-            showDashboard("Super Admin Control (Devansh)");
-            return;
-        }
-
-        // 2. Widget Test Portal Deep-Link Router
-        if (currentPath.includes('test')) {
-            isTestEnvironment = true;
-            document.getElementById('auth-section').classList.add('hidden');
-            document.getElementById('dashboard-section').classList.remove('hidden');
-            document.getElementById('workspace-title').innerText = 'Widget Test Portal (Live Preview)';
-            document.getElementById('plan-status-text').innerText = 'Testing Environment Active';
-            document.getElementById('user-status').querySelector('#logout-btn').classList.remove('hidden');
-            return;
-        }
-
-        // 3. Normal User Session Manager
-        const savedAppId = localStorage.getItem('helppilot_app_id');
-        const savedStoreName = localStorage.getItem('helppilot_store_name');
-
-        if (savedAppId && savedStoreName) {
-            currentAppId = savedAppId;
-            if (savedAppId === 'devansh_admin') isSuperAdmin = true;
-            showDashboard(savedStoreName);
-        } else if (supabaseClient) {
-            try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) {
-                    setupDashboardUser(session.user);
-                }
-            } catch (err) {}
-        }
+    return {
+        Authorization: `Bearer ${currentToken}`,
+        'Content-Type': 'application/json'
     };
+}
 
-    function scrollToAuth() { 
-        document.getElementById('auth-box-anchor').scrollIntoView({ behavior: 'smooth' }); 
+async function apiRequest(endpoint, options = {}) {
+    const response = await fetch(endpoint, {
+        ...options,
+        headers: {
+            ...getAuthHeaders(),
+            ...(options.headers || {})
+        }
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || result.success === false) {
+        throw new Error(result.error || 'Request failed.');
     }
 
-    function scrollToPricing() {
-        document.getElementById('pricing-anchor').scrollIntoView({ behavior: 'smooth' });
+    return result;
+}
+
+function createTextElement(tag, className, text) {
+    const element = document.createElement(tag);
+
+    if (className) element.className = className;
+
+    element.textContent = text ?? '';
+
+    return element;
+}
+
+function showAuthSection() {
+    el('auth-section')?.classList.remove('hidden');
+    el('dashboard-section')?.classList.add('hidden');
+    el('logout-btn')?.classList.add('hidden');
+}
+
+function showDashboardSection() {
+    el('auth-section')?.classList.add('hidden');
+    el('dashboard-section')?.classList.remove('hidden');
+    el('logout-btn')?.classList.remove('hidden');
+}
+
+window.onload = async function () {
+    showAuthSection();
+
+    if (!supabaseClient) {
+        showMessage('Unable to connect to authentication service.');
+        return;
     }
 
-    function openPaymentModal() {
-        if (FUTURE_PAYMENT_LINK !== "") {
-            window.open(FUTURE_PAYMENT_LINK, '_blank');
-        } else {
-            document.getElementById('payment-modal').classList.remove('hidden');
+    try {
+        const { data, error } = await supabaseClient.auth.getSession();
+
+        if (error) throw error;
+
+        if (data?.session) {
+            await setupDashboardUser(data.session.user);
         }
+    } catch (error) {
+        console.error('Session check failed:', error);
+        showAuthSection();
+    }
+};
+
+async function handleForgotPassword() {
+    const email = el('auth-email').value.trim();
+
+    if (!email) {
+        return showMessage('Enter your email above, then click "Forgot password?".');
     }
 
-    function closePaymentModal() { document.getElementById('payment-modal').classList.add('hidden'); }
+    try {
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin + '/'
+        });
 
-    async function submitPaymentUTR() {
-        const utr = document.getElementById('payment-utr').value.trim();
-        if (!utr || utr.length < 6) return alert("Please enter a valid 12-digit UTR/Transaction Reference Number!");
-        
-        if (supabaseClient) {
-            const { error } = await supabaseClient.from('payments').insert([
-                { app_id: currentAppId, utr_number: utr, status: 'pending' }
-            ]);
-            if (error) {
-                console.error("Payment save error:", error);
-            }
+        if (error) throw error;
+
+        showMessage('If an account exists for this email, a password reset link has been sent.');
+    } catch (error) {
+        console.error('Password reset error:', error);
+        showMessage(error.message || 'Unable to send the reset email.');
+    }
+}
+
+// When the user opens the reset link, ask for a new password.
+if (supabaseClient) {
+    supabaseClient.auth.onAuthStateChange(async (event) => {
+        if (event !== 'PASSWORD_RECOVERY') return;
+
+        const newPassword = prompt('Enter your new password (min 6 characters):');
+
+        if (!newPassword || newPassword.length < 6) {
+            return showMessage('Password must contain at least 6 characters. Use "Forgot password?" to try again.');
         }
 
-        sendAdminAlert('New UTR Payment Submitted', currentAppId, 'UTR Number: ' + utr);
+        const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
 
-        alert("Payment UTR Submitted Successfully! Devansh will verify and activate your Pro plan within 5 minutes.");
-        closePaymentModal();
-        checkTrialStatus(currentAppId);
+        showMessage(error ? error.message : 'Password updated. You are now logged in.');
+    });
+}
+
+function scrollToAuth() {
+    el('auth-box-anchor')?.scrollIntoView({
+        behavior: 'smooth'
+    });
+}
+
+function scrollToPricing() {
+    el('pricing-anchor')?.scrollIntoView({
+        behavior: 'smooth'
+    });
+}
+
+function openPaymentModal() {
+    if (FUTURE_PAYMENT_LINK) {
+        window.open(FUTURE_PAYMENT_LINK, '_blank');
+        return;
     }
 
-    async function handleSignUp() {
-        const email = document.getElementById('auth-email').value.trim();
-        const password = document.getElementById('auth-password').value.trim();
-        const storeName = document.getElementById('auth-store').value.trim();
+    el('payment-modal')?.classList.remove('hidden');
+}
 
-        if (!email || !password || !storeName) {
-            return alert("Kripya Email, Password aur Store Name teeno fill karein!");
+function closePaymentModal() {
+    el('payment-modal')?.classList.add('hidden');
+}
+
+// Verify the user's role through the backend.
+async function verifyUserRole(token) {
+    const response = await fetch('/api/auth-role', {
+        headers: {
+            Authorization: `Bearer ${token}`
         }
+    });
 
-        if (password.length < 6) {
-            return alert("Password kam se kam 6 characters ka hona chahiye!");
-        }
+    const result = await response.json();
 
-        if (!supabaseClient) {
-            return alert("Database connection error!");
-        }
+    if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Unable to verify account.');
+    }
 
+    return result.isOwner === true;
+}
+
+// Signup
+async function handleSignUp() {
+    const email = el('auth-email').value.trim();
+    const password = el('auth-password').value;
+    const storeName = el('auth-store').value.trim();
+
+    if (!email || !password || !storeName) {
+        return showMessage('Please enter email, password and store name.');
+    }
+
+    if (password.length < 6) {
+        return showMessage('Password must contain at least 6 characters.');
+    }
+
+    if (!supabaseClient) {
+        return showMessage('Authentication service is unavailable.');
+    }
+
+    try {
         const { data, error } = await supabaseClient.auth.signUp({
-            email: email,
-            password: password
+            email,
+            password,
+            options: { data: { store_name: storeName } }
         });
 
-        if (error) {
-            return alert("Signup Failed: " + error.message);
+        if (error) throw error;
+
+        if (!data.user || !data.session) {
+            return showMessage(
+                'Account created. Please verify your email, then log in.'
+            );
         }
 
-        currentAppId = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
-        localStorage.setItem('helppilot_app_id', currentAppId);
-        localStorage.setItem('helppilot_store_name', storeName);
+        currentToken = data.session.access_token;
 
-        await supabaseClient.from('workspaces').insert([
-            { user_id: data.user ? data.user.id : null, app_id: currentAppId, store_name: storeName }
-        ]).catch(e => {});
-
-        sendAdminAlert('New Store Sign Up', currentAppId, `Store: ${storeName}, Email: ${email}`);
-        sendUserWelcomeEmail(email, storeName, currentAppId);
-
-        alert("Account Created Successfully! Welcome to HelpPilot AI.");
-        showDashboard(storeName);
-    }
-
-    async function handleLogin() {
-        const email = document.getElementById('auth-email').value.trim();
-        const password = document.getElementById('auth-password').value.trim();
-
-        if (!email || !password) {
-            return alert("Kripya Email aur Password enter karein!");
-        }
-
-        if (email === 'devanshtripathi217@gmail.com') {
-            currentAppId = 'devansh_admin';
-            isSuperAdmin = true;
-            localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
-            showDashboard("Super Admin Control (Devansh)");
-            return;
-        }
-
-        if (!supabaseClient) {
-            return alert("Database connection error!");
-        }
-
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-            email: email,
-            password: password
+        await apiRequest('/api/workspaces', {
+            method: 'POST',
+            body: JSON.stringify({ storeName })
         });
 
-        if (error) {
-            return alert("Login Failed: " + error.message);
-        }
+        await setupDashboardUser(data.user);
 
-        setupDashboardUser(data.user);
+        showMessage('Your account and workspace have been created.');
+
+    } catch (error) {
+        console.error('Signup error:', error);
+        showMessage(error.message || 'Unable to create your account.');
+    }
+}
+
+// Login
+async function handleLogin() {
+    const email = el('auth-email').value.trim();
+    const password = el('auth-password').value;
+
+    if (!email || !password) {
+        return showMessage('Please enter your email and password.');
     }
 
-    async function setupDashboardUser(user) {
-        if (!supabaseClient) return;
-        if (user.email === 'devanshtripathi217@gmail.com') {
-            currentAppId = 'devansh_admin';
-            isSuperAdmin = true;
-            localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', 'Super Admin Control (Devansh)');
-            showDashboard("Super Admin Control (Devansh)");
-            return;
+    if (!supabaseClient) {
+        return showMessage('Authentication service is unavailable.');
+    }
+
+    try {
+        const { data, error } =
+            await supabaseClient.auth.signInWithPassword({
+                email,
+                password
+            });
+
+        if (error) throw error;
+
+        await setupDashboardUser(data.user);
+
+    } catch (error) {
+        console.error('Login error:', error);
+        showMessage(error.message || 'Login failed.');
+    }
+}
+
+// Load the correct dashboard after server-side role verification.
+async function setupDashboardUser(user) {
+    if (!supabaseClient || !user) {
+        throw new Error('Authentication required.');
+    }
+
+    try {
+        const { data } = await supabaseClient.auth.getSession();
+
+        const token = data?.session?.access_token;
+
+        if (!token) {
+            throw new Error('Your session has expired. Please log in again.');
         }
 
-        const { data: ws } = await supabaseClient.from('workspaces').select('*').eq('user_id', user.id).single();
-        if (ws) {
-            currentAppId = ws.app_id;
-            localStorage.setItem('helppilot_app_id', currentAppId);
-            localStorage.setItem('helppilot_store_name', ws.store_name);
-            showDashboard(ws.store_name);
+        currentToken = token;
+
+        isSuperAdmin = await verifyUserRole(token);
+
+        if (isSuperAdmin) {
+            currentAppId = null;
+            publicAppId = null;
+            currentWorkspace = null;
+
+            setText('workspace-title', 'HelpPilot AI Admin Console');
+            setText('plan-status-text', 'Administrator account');
+
+            el('admin-payments-panel')?.classList.remove('hidden');
+            el('upgrade-btn')?.classList.add('hidden');
+
+            el('kb-question')?.closest('.panel-card')?.classList.add('hidden');
+
+            const panels = document.querySelectorAll(
+                '#dashboard-section .panel-card'
+            );
+
+            // Admin does not need a store's embed code or chat panel.
+            if (panels[2]) panels[2].classList.add('hidden');
+            if (panels[3]) panels[3].classList.add('hidden');
+
+            setText('trial-badge', 'Admin Account');
+
         } else {
-            localStorage.setItem('helppilot_app_id', 'my_store');
-            localStorage.setItem('helppilot_store_name', 'My Workspace');
-            showDashboard("My Workspace");
+            // POST returns the existing workspace, or creates one (e.g. first
+            // login after email verification).
+            const savedName = (user.user_metadata?.store_name || '').trim();
+            const createWorkspace = name => apiRequest('/api/workspaces', {
+                method: 'POST',
+                body: JSON.stringify({ storeName: name })
+            });
+
+            let result;
+
+            try {
+                result = await createWorkspace(savedName);
+            } catch (workspaceError) {
+                if (workspaceError.message !== 'Enter a valid store name.') {
+                    throw workspaceError;
+                }
+
+                const typedName = (prompt('Enter your store name to finish setup:') || '').trim();
+
+                if (!typedName) {
+                    throw new Error('Store name is required to finish setup.');
+                }
+
+                result = await createWorkspace(typedName);
+            }
+
+            if (!result.workspace || !result.publicAppId) {
+                throw new Error('Your workspace configuration is incomplete.');
+            }
+
+            currentWorkspace = result.workspace;
+            currentAppId = result.workspace.app_id;
+            publicAppId = result.publicAppId;
+
+            setText(
+                'workspace-title',
+                `Workspace: ${result.workspace.store_name}`
+            );
+
+            setText(
+                'plan-status-text',
+                `Account plan: ${result.workspace.plan_type || 'Free Trial'}`
+            );
+
+            el('admin-payments-panel')?.classList.add('hidden');
+            el('upgrade-btn')?.classList.remove('hidden');
+
+            el('kb-question')?.closest('.panel-card')?.classList.remove('hidden');
+
+            const panels = document.querySelectorAll(
+                '#dashboard-section .panel-card'
+            );
+
+            if (panels[2]) panels[2].classList.remove('hidden');
+            if (panels[3]) panels[3].classList.remove('hidden');
+
+            setText('trial-badge', 'Store Account');
+
+            const embedCode =
+                `<script src="${window.location.origin}/widget.js" data-app-id="${publicAppId}"><\/script>`;
+
+            setText('embed-code-display', embedCode);
         }
+
+        showDashboardSection();
+
+        if (dashboardInterval) {
+            clearInterval(dashboardInterval);
+        }
+
+        await loadDashboardData();
+
+        dashboardInterval = setInterval(() => {
+            loadDashboardData().catch(error => {
+                console.error('Dashboard refresh failed:', error);
+            });
+        }, 15000);
+
+    } catch (error) {
+        console.error('Dashboard setup error:', error);
+
+        await supabaseClient.auth.signOut();
+
+        currentToken = null;
+        currentAppId = null;
+        publicAppId = null;
+        currentWorkspace = null;
+        isSuperAdmin = false;
+
+        showAuthSection();
+
+        throw error;
+    }
+}
+
+// Logout
+async function handleLogout() {
+    if (dashboardInterval) {
+        clearInterval(dashboardInterval);
+        dashboardInterval = null;
     }
 
-    async function handleLogout() { 
-        localStorage.removeItem('helppilot_app_id');
-        localStorage.removeItem('helppilot_store_name');
-        if (supabaseClient) await supabaseClient.auth.signOut();
-        window.location.href = '/'; 
+    if (supabaseClient) {
+        await supabaseClient.auth.signOut();
     }
 
-    function showDashboard(storeTitle) {
-        document.getElementById('auth-section').classList.add('hidden');
-        document.getElementById('dashboard-section').classList.remove('hidden');
-        document.getElementById('user-status').querySelector('#logout-btn').classList.remove('hidden');
+    currentToken = null;
+    currentAppId = null;
+    publicAppId = null;
+    currentWorkspace = null;
+    isSuperAdmin = false;
 
-        document.getElementById('workspace-title').innerText = `Workspace: ${storeTitle}`;
-        document.getElementById('embed-code-display').innerText = `<script src="https://helppilotai.vercel.app/widget.js" data-app-id="${currentAppId}"><\/script>`;
+    showAuthSection();
+    window.location.href = '/';
+}
 
-        if (isSuperAdmin || currentAppId === 'devansh_admin' || ['devansh_admin', 'helppilot_admin'].includes(currentAppId)) {
-            isSuperAdmin = true;
-            document.getElementById('trial-badge').innerHTML = '🟢 Pro Account (Super Admin)';
-            document.getElementById('plan-status-text').innerText = 'Active Plan: Enterprise Pro (Unlimited)';
-            const adminPanel = document.getElementById('admin-payments-panel');
-            if (adminPanel) adminPanel.classList.remove('hidden');
-            const upBtn = document.getElementById('upgrade-btn');
-            if(upBtn) upBtn.classList.add('hidden');
+// Submit payment reference.
+async function submitPaymentUTR() {
+    const utr = el('payment-utr').value.trim();
+
+    if (!/^[a-zA-Z0-9-]{6,40}$/.test(utr)) {
+        return showMessage('Please enter a valid payment reference.');
+    }
+
+    try {
+        await apiRequest('/api/payments', {
+            method: 'POST',
+            body: JSON.stringify({
+                utr_number: utr
+            })
+        });
+
+        el('payment-utr').value = '';
+
+        closePaymentModal();
+
+        showMessage(
+            'Payment reference submitted. Your payment is pending manual verification.'
+        );
+
+        await loadDashboardData();
+
+    } catch (error) {
+        console.error('Payment submission error:', error);
+        showMessage(error.message);
+    }
+}
+
+// Add knowledge-base entry.
+async function addKBEntry() {
+    const title = el('kb-question').value.trim();
+    const content = el('kb-answer').value.trim();
+
+    if (!title || !content) {
+        return showMessage('Please enter both question and answer.');
+    }
+
+    try {
+        await apiRequest('/api/knowledge', {
+            method: 'POST',
+            body: JSON.stringify({
+                title,
+                content
+            })
+        });
+
+        el('kb-question').value = '';
+        el('kb-answer').value = '';
+
+        showMessage('Knowledge-base entry saved.');
+
+        await loadKnowledgeBase();
+
+    } catch (error) {
+        console.error('Knowledge-base error:', error);
+        showMessage(error.message);
+    }
+}
+
+// Delete a knowledge-base entry.
+async function deleteKBEntry(id) {
+    if (!confirm('Delete this FAQ entry?')) return;
+
+    try {
+        await apiRequest('/api/knowledge?id=' + encodeURIComponent(id), {
+            method: 'DELETE'
+        });
+
+        await loadKnowledgeBase();
+
+    } catch (error) {
+        console.error('Knowledge-base delete error:', error);
+        showMessage(error.message);
+    }
+}
+
+// Admin: approve or reject a pending payment.
+async function approveProUser(paymentId, status = 'approved') {
+    if (!isSuperAdmin) {
+        return showMessage('Administrator access required.');
+    }
+
+    if (!['approved', 'rejected'].includes(status)) {
+        return;
+    }
+
+    const confirmation = status === 'approved'
+        ? 'Confirm that you have independently verified this payment?'
+        : 'Reject this payment submission?';
+
+    if (!confirm(confirmation)) return;
+
+    try {
+        await apiRequest('/api/payments', {
+            method: 'PATCH',
+            body: JSON.stringify({
+                id: paymentId,
+                status
+            })
+        });
+
+        showMessage(
+            status === 'approved'
+                ? 'Payment approved. The store is now on the Pro plan.'
+                : 'Payment marked as rejected.'
+        );
+
+        await loadPayments();
+
+    } catch (error) {
+        console.error('Payment review error:', error);
+        showMessage(error.message);
+    }
+}
+
+// Load analytics.
+async function loadAnalytics() {
+    const result = await apiRequest('/api/analytics');
+
+    setText('stat-chats', result.totalConversations ?? 0);
+    setText('stat-escalations', result.escalations ?? 0);
+}
+
+// Load knowledge-base entries.
+async function loadKnowledgeBase() {
+    if (isSuperAdmin) return;
+
+    const result = await apiRequest('/api/knowledge');
+
+    const list = el('kb-list');
+    if (!list) return;
+
+    list.replaceChildren();
+
+    const entries = result.data || [];
+
+    setText('stat-kb-count', entries.length);
+
+    if (entries.length === 0) {
+        list.appendChild(
+            createTextElement(
+                'p',
+                '',
+                'No FAQs added yet.'
+            )
+        );
+        return;
+    }
+
+    entries.forEach(item => {
+        const card = createTextElement('div', 'kb-item', '');
+
+        const question = createTextElement(
+            'strong',
+            '',
+            `Q: ${item.title}`
+        );
+
+        const answer = createTextElement(
+            'p',
+            '',
+            item.content
+        );
+
+        answer.style.marginTop = '4px';
+        answer.style.color = 'var(--text-sub)';
+        answer.style.fontSize = '12px';
+
+        const deleteButton = createTextElement('button', '', 'Delete');
+        deleteButton.type = 'button';
+        deleteButton.style.cssText =
+            'margin-top:6px;background:none;border:1px solid #ef4444;color:#ef4444;' +
+            'border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;';
+        deleteButton.addEventListener('click', () => deleteKBEntry(item.id));
+
+        card.append(question, answer, deleteButton);
+        list.appendChild(card);
+    });
+}
+
+// Load payments.
+async function loadPayments() {
+    const result = await apiRequest('/api/payments');
+
+    const list = el('payment-requests-list');
+    if (!list) return;
+
+    list.replaceChildren();
+
+    const payments = result.data || [];
+
+    if (payments.length === 0) {
+        list.appendChild(
+            createTextElement(
+                'p',
+                '',
+                'No payment submissions yet.'
+            )
+        );
+        return;
+    }
+
+    payments.forEach(payment => {
+        const card = createTextElement('div', 'payment-item', '');
+
+        card.style.display = 'flex';
+        card.style.justifyContent = 'space-between';
+        card.style.alignItems = 'center';
+        card.style.flexWrap = 'wrap';
+        card.style.gap = '12px';
+
+        const details = createTextElement('div', '', '');
+
+        details.appendChild(
+            createTextElement(
+                'div',
+                '',
+                `App ID: ${payment.app_id}`
+            )
+        );
+
+        details.appendChild(
+            createTextElement(
+                'div',
+                '',
+                `UTR: ${payment.utr_number}`
+            )
+        );
+
+        details.appendChild(
+            createTextElement(
+                'div',
+                '',
+                `Date: ${new Date(payment.created_at).toLocaleString()}`
+            )
+        );
+
+        details.appendChild(
+            createTextElement(
+                'div',
+                '',
+                `Status: ${payment.status}`
+            )
+        );
+
+        card.appendChild(details);
+
+        if (isSuperAdmin && payment.status === 'pending') {
+            const actions = createTextElement('div', '', '');
+
+            const approveButton = createTextElement(
+                'button',
+                'btn-success',
+                'Approve'
+            );
+
+            approveButton.style.width = 'auto';
+            approveButton.style.padding = '8px 12px';
+
+            approveButton.addEventListener('click', () => {
+                approveProUser(payment.id, 'approved');
+            });
+
+            const rejectButton = createTextElement(
+                'button',
+                'btn-secondary',
+                'Reject'
+            );
+
+            rejectButton.style.width = 'auto';
+            rejectButton.style.padding = '8px 12px';
+            rejectButton.style.marginLeft = '8px';
+
+            rejectButton.addEventListener('click', () => {
+                approveProUser(payment.id, 'rejected');
+            });
+
+            actions.append(approveButton, rejectButton);
+            card.appendChild(actions);
+        }
+
+        list.appendChild(card);
+    });
+}
+
+// Load secure conversation history.
+async function loadConversations() {
+    const result = await apiRequest('/api/conversations');
+    const list = el('chat-logs');
+
+    if (!list) return;
+
+    list.replaceChildren();
+
+    const conversations = result.data || [];
+
+    if (conversations.length === 0) {
+        list.textContent = 'No conversations recorded yet.';
+        return;
+    }
+
+    conversations.forEach(chat => {
+        const card = createTextElement('div', 'chat-item', '');
+
+        card.appendChild(createTextElement(
+            'div',
+            '',
+            `${new Date(chat.created_at).toLocaleString()} | Visitor: ${chat.visitor_id}`
+        ));
+
+        card.appendChild(createTextElement(
+            'div',
+            '',
+            `Message: ${chat.message || 'No message available'}`
+        ));
+
+        card.appendChild(createTextElement(
+            'div',
+            '',
+            `Status: ${chat.status || 'open'}`
+        ));
+
+        if (chat.status === 'escalated') {
+            card.style.borderLeft = '3px solid #f87171';
+        }
+
+        list.appendChild(card);
+    });
+}
+
+// Refresh dashboard data.
+async function loadDashboardData() {
+    if (!currentToken) return;
+
+    try {
+        await loadAnalytics();
+
+        if (isSuperAdmin) {
+            await loadPayments();
         } else {
-            checkTrialStatus(currentAppId);
+            await Promise.all([
+                loadKnowledgeBase(),
+                loadPayments(),
+                loadConversations()
+            ]);
         }
 
-        loadDashboardData();
-        setInterval(() => {
-            if (!isTestEnvironment) loadDashboardData();
-        }, 4000);
+    } catch (error) {
+        console.error('Dashboard data error:', error);
+    }
+}
+
+// Copy embed code.
+async function copyEmbedCode() {
+    const text = el('embed-code-display')?.textContent || '';
+
+    if (!text || !publicAppId) {
+        return showMessage('Your public app ID is not available.');
     }
 
-    async function checkTrialStatus(appId) {
-        if (!supabaseClient || isTestEnvironment) return;
-        try {
-            const { data: approvedPay } = await supabaseClient.from('payments').select('*').eq('app_id', appId).eq('status', 'approved').order('created_at', { ascending: false }).limit(1);
-            
-            if (approvedPay && approvedPay.length > 0) {
-                const approvalDate = new Date(approvedPay[0].created_at);
-                const daysPassed = Math.floor((new Date() - approvalDate) / (1000 * 60 * 60 * 24));
-                const daysRemaining = Math.max(0, 30 - daysPassed);
-
-                if (daysRemaining > 0) {
-                    document.getElementById('trial-badge').innerHTML = '⚡ Pro Account Active';
-                    document.getElementById('plan-status-text').innerText = `Active Plan: Pro Autopilot (${daysRemaining} Days Left)`;
-                    const upBtn = document.getElementById('upgrade-btn');
-                    if (upBtn) upBtn.innerText = '⚡ Pro Active (₹499/mo)';
-                    return;
-                }
-            }
-
-            const { data } = await supabaseClient.from('conversations').select('created_at').eq('app_id', appId).order('created_at', { ascending: true }).limit(1);
-            if (data && data.length > 0) {
-                const startDate = new Date(data[0].created_at);
-                const daysUsed = Math.ceil((new Date() - startDate) / (1000 * 60 * 60 * 24));
-                const daysLeft = Math.max(0, 14 - daysUsed);
-                document.getElementById('trial-badge').innerHTML = daysLeft === 0 ? '🔴 Trial Expired' : `⏱️ Free Trial: ${daysLeft} Days Left`;
-            } else {
-                document.getElementById('trial-badge').innerHTML = '⏱️ Free Trial: 14 Days Left';
-            }
-        } catch (e) { document.getElementById('trial-badge').innerHTML = '⏱️ Free Trial: 14 Days Left'; }
+    try {
+        await navigator.clipboard.writeText(text);
+        showMessage('Embed code copied.');
+    } catch (error) {
+        showMessage('Unable to copy. Please copy the code manually.');
     }
-
-    async function addKBEntry() {
-        const question = document.getElementById('kb-question').value;
-        const answer = document.getElementById('kb-answer').value;
-
-        if (!question || !answer) return alert('Please enter both question and answer!');
-        if (!supabaseClient) return;
-
-        await supabaseClient.from('knowledge_base').insert([{ app_id: currentAppId, title: question, content: answer }]);
-        document.getElementById('kb-question').value = '';
-        document.getElementById('kb-answer').value = '';
-        alert('FAQ Entry Saved!');
-        loadDashboardData();
-    }
-
-    async function approveProUser(paymentId, appId) {
-        if (!supabaseClient) return;
-        await supabaseClient.from('payments').update({ status: 'approved', created_at: new Date() }).eq('id', paymentId);
-        alert(`Account '${appId}' successfully activated to Pro Plan for 30 Days!`);
-        loadDashboardData();
-    }
-
-    async function loadDashboardData() {
-        if (!supabaseClient || isTestEnvironment) return;
-
-        try {
-            let kbQuery = supabaseClient.from('knowledge_base').select('*');
-            let chatQuery = supabaseClient.from('conversations').select('*').order('created_at', { ascending: false });
-
-            if (!isSuperAdmin) {
-                kbQuery = kbQuery.eq('app_id', currentAppId);
-                chatQuery = chatQuery.eq('app_id', currentAppId);
-                checkTrialStatus(currentAppId);
-            } else {
-                const { data: payData } = await supabaseClient.from('payments').select('*').order('created_at', { ascending: false });
-                if (payData && document.getElementById('payment-requests-list')) {
-                    document.getElementById('payment-requests-list').innerHTML = payData.map(p => `
-                        <div class="payment-item" style="display: flex; justify-content: space-between; align-items: center; border-left: 3px solid ${p.status === 'approved' ? '#10b981' : '#f59e0b'}; margin-bottom: 8px;">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700;">App ID: ${p.app_id}</div>
-                                <div style="font-size: 12px; color: var(--text-sub);">UTR: <strong>${p.utr_number}</strong> | Date: ${new Date(p.created_at).toLocaleString()}</div>
-                            </div>
-                            <div>
-                                ${p.status === 'approved' ? '<span style="color: #10b981; font-weight: bold; font-size: 12px;">✅ Approved (30 Days Active)</span>' : `<button class="btn-success" style="padding: 4px 10px; font-size: 11px; width: auto;" onclick="approveProUser(${p.id}, '${p.app_id}')">Approve & Activate Pro</button>`}
-                            </div>
-                        </div>
-                    `).join('') || '<p style="color: var(--text-sub); font-size: 12px;">No payment submissions yet.</p>';
-                }
-            }
-
-            const { data: kbData } = await kbQuery;
-            const { data: chatData } = await chatQuery;
-
-            if (kbData) {
-                document.getElementById('stat-kb-count').innerText = kbData.length;
-                document.getElementById('kb-list').innerHTML = kbData.map(item => `
-                    <div class="kb-item">
-                        <strong>Q: ${item.title}</strong>
-                        <p style="margin-top: 4px; color: var(--text-sub); font-size: 12px;">${item.content}</p>
-                    </div>
-                `).join('') || '<p style="color: var(--text-sub); font-size: 12px;">No FAQs added yet.</p>';
-            }
-
-            if (chatData) {
-                document.getElementById('stat-chats').innerText = chatData.length;
-                const escalations = chatData.filter(c => c.status === 'escalated').length;
-                document.getElementById('stat-escalations').innerText = escalations;
-
-                document.getElementById('chat-logs').innerHTML = chatData.map(c => `
-                    <div class="chat-item" style="border-left: 3px solid ${c.status === 'escalated' ? '#f87171' : '#6366f1'};">
-                        <div style="font-size: 10px; color: var(--text-sub);">${new Date(c.created_at).toLocaleTimeString()} | Visitor: ${c.visitor_id} [App: ${c.app_id}]</div>
-                        <div style="margin-top: 4px; font-size: 12px;"><strong>Msg:</strong> ${c.message}</div>
-                        ${c.status === 'escalated' ? '<div style="color: #f87171; font-size: 11px; font-weight: bold; margin-top: 2px;">⚠️ Human Escalation Triggered</div>' : ''}
-                    </div>
-                `).join('') || '<p style="color: var(--text-sub); font-size: 12px;">No chat history recorded yet.</p>';
-            }
-        } catch (e) {}
-    }
-
-    function copyEmbedCode() {
-        const text = document.getElementById('embed-code-display').innerText;
-        navigator.clipboard.writeText(text);
-        alert('Embed script code copied!');
-    }
+}
 </script>
+<footer style="text-align:center;padding:24px 16px;font-size:12px;color:#94a3b8;">
+    <a href="/terms" style="color:#94a3b8;margin:0 8px;">Terms of Service</a>
+    <a href="/privacy" style="color:#94a3b8;margin:0 8px;">Privacy Policy</a>
+</footer>
 </body>
 </html>
