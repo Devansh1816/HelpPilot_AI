@@ -27,8 +27,9 @@ function normalizeHost(value) {
   }
 }
 
+// Fails closed: a store with no configured domain is never allowed.
 function isAllowedDomain(origin, configuredDomain) {
-  if (!configuredDomain) return true;
+  if (!configuredDomain) return false;
 
   const requestHost = normalizeHost(origin);
   const allowedHost = normalizeHost(configuredDomain);
@@ -137,6 +138,14 @@ export default async function handler(req, res) {
 
     const origin = req.headers.origin || '';
 
+    // No domain configured: refuse instead of accepting every website.
+    if (!app.domain) {
+      return res.status(403).json({
+        error: 'Chatbot domain is not configured.',
+        reply: 'This chatbot has not been set up for this website yet.'
+      });
+    }
+
     if (!isAllowedDomain(origin, app.domain)) {
       return res.status(403).json({
         error: 'This website is not authorized to use this chatbot.'
@@ -161,7 +170,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Free-trial limit. Stores with an approved payment are Pro.
+    // Free-trial limit. Stores with an active approved payment are Pro.
     const plan = await getPlan(supabase, app.id);
 
     if (plan !== 'Pro') {
