@@ -650,18 +650,34 @@ async function setupDashboardUser(user) {
                 `Workspace: ${result.workspace.store_name}`
             );
 
-            setText(
-                'plan-status-text',
-                `Account plan: ${result.workspace.plan_type || 'Free Trial'}`
-            );
+           const isPro = result.workspace.plan_type === 'Pro';
+const expiresAt = result.workspace.plan_expires_at
+    ? new Date(result.workspace.plan_expires_at)
+    : null;
+const daysLeft = expiresAt
+    ? Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)
+    : null;
 
-            el('admin-payments-panel')?.classList.add('hidden');
-           el('upgrade-btn')?.classList.remove('hidden');
+setText(
+    'plan-status-text',
+    isPro && expiresAt
+        ? `Account plan: Pro (valid till ${expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })})`
+        : `Account plan: ${result.workspace.plan_type || 'Free Trial'}`
+);
+
+el('admin-payments-panel')?.classList.add('hidden');
+
 const upgradeBtnEl = el('upgrade-btn');
 if (upgradeBtnEl) {
-    upgradeBtnEl.textContent = result.workspace.plan_type === 'Pro'
-        ? '⚡ Renew Pro (₹499/mo)'
-        : '⚡ Upgrade to Pro (₹499/mo)';
+    if (isPro && daysLeft !== null && daysLeft > 5) {
+        upgradeBtnEl.classList.add('hidden');
+    } else {
+        upgradeBtnEl.classList.remove('hidden');
+        upgradeBtnEl.textContent = isPro
+            ? '⚡ Renew Pro (₹499/mo)'
+            : '⚡ Upgrade to Pro (₹499/mo)';
+    }
+} Upgrade to Pro (₹499/mo)';
 }
 
             el('kb-question')?.closest('.panel-card')?.classList.remove('hidden');
