@@ -8,3 +8,5 @@
 6. Test: sign up -> verify email -> login -> add FAQ -> embed widget -> chat -> forgot password -> UTR submit -> admin approve -> plan shows Pro.
 7. Test with two accounts: data must not leak between them.
 8. No domain is hardcoded: the widget and embed code use whatever domain the site is served from. Use the exact domain Vercel shows (it ends in .vercel.app, not .vercel.com).
+
+- Gemini: tries gemini-3.8-flash, then gemini-3.6-flash, then gemini-2.5-flash if a model is busy.
