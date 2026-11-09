@@ -1098,6 +1098,65 @@ async function copyEmbedCode() {
         showMessage('Unable to copy. Please copy the code manually.');
     }
 }
+    // ===== Forgot password =====
+(function () {
+    const SITE_URL = 'https://helppilotai.vercel.app';
+    // Capture synchronously: Supabase clears the URL hash after reading it.
+    const startedAsRecovery = /type=recovery/.test(window.location.hash);
+
+    // 1) "Forgot password?" link under the password field
+    const pw = document.getElementById('auth-password');
+    if (pw && !document.getElementById('forgot-password-link')) {
+        const link = document.createElement('a');
+        link.id = 'forgot-password-link';
+        link.href = '#';
+        link.textContent = 'Forgot password?';
+        link.style.cssText = 'display:block;margin-top:8px;font-size:13px;color:#818cf8;text-align:right;';
+        link.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const emailInput = document.querySelector('input[type="email"]');
+            const email = (emailInput?.value || '').trim();
+            if (!email) return showMessage('Enter your email first, then click Forgot password.');
+            if (!supabaseClient) return showMessage('Authentication service is unavailable.');
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL });
+            if (error) return showMessage('Could not send reset email. Please try again in a minute.');
+            showMessage('If this email has an account, a reset link has been sent. Check your inbox and spam.');
+        });
+        pw.insertAdjacentElement('afterend', link);
+    }
+
+    // 2) New-password form, shown when the user opens the reset link
+    function showResetForm() {
+        if (document.getElementById('reset-overlay')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'reset-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        overlay.innerHTML =
+            '<div style="background:#131b2e;border:1px solid #1e293b;border-radius:16px;padding:28px;max-width:380px;width:100%;color:#f8fafc;font-family:inherit;">' +
+            '<h3 style="margin:0 0 6px;font-size:20px;">Set a new password</h3>' +
+            '<p style="margin:0 0 16px;font-size:13px;color:#94a3b8;">Use at least 8 characters.</p>' +
+            '<input id="reset-new-password" type="password" placeholder="New password" style="width:100%;padding:12px;border-radius:10px;border:1px solid #1e293b;background:#07090e;color:#fff;margin-bottom:12px;">' +
+            '<button id="reset-save" style="width:100%;padding:12px;border:0;border-radius:10px;background:#6366f1;color:#fff;font-weight:700;cursor:pointer;">Save new password</button>' +
+            '</div>';
+        document.body.appendChild(overlay);
+        document.getElementById('reset-save').addEventListener('click', async () => {
+            const newPw = document.getElementById('reset-new-password').value;
+            if (newPw.length < 8) return showMessage('Password must be at least 8 characters.');
+            const { error } = await supabaseClient.auth.updateUser({ password: newPw });
+            if (error) return showMessage('Could not update password. The link may have expired, request a new one.');
+            showMessage('Password updated. Please log in again.');
+            await supabaseClient.auth.signOut();
+            setTimeout(() => { window.location.href = SITE_URL; }, 1200);
+        });
+    }
+
+    if (startedAsRecovery) showResetForm();
+    if (supabaseClient) {
+        supabaseClient.auth.onAuthStateChange((event) => {
+            if (event === 'PASSWORD_RECOVERY') showResetForm();
+        });
+    }
+})();
 </script>
 <footer style="text-align:center;padding:24px 16px;font-size:12px;color:#94a3b8;">
     <a href="/terms" style="color:#94a3b8;margin:0 8px;">Terms of Service</a>
