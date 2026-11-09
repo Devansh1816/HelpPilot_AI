@@ -258,7 +258,7 @@ ${cleanMsg}
                   },
                   body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { maxOutputTokens: 500 }
+                    generationConfig: { maxOutputTokens: 1024 }
                   }),
                   signal: AbortSignal.timeout(Math.min(9000, remaining))
                 }
