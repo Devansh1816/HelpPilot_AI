@@ -656,7 +656,13 @@ async function setupDashboardUser(user) {
             );
 
             el('admin-payments-panel')?.classList.add('hidden');
-            el('upgrade-btn')?.classList.remove('hidden');
+           el('upgrade-btn')?.classList.remove('hidden');
+const upgradeBtnEl = el('upgrade-btn');
+if (upgradeBtnEl) {
+    upgradeBtnEl.textContent = result.workspace.plan_type === 'Pro'
+        ? '⚡ Renew Pro (₹499/mo)'
+        : '⚡ Upgrade to Pro (₹499/mo)';
+}
 
             el('kb-question')?.closest('.panel-card')?.classList.remove('hidden');
 
