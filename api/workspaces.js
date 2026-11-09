@@ -2,9 +2,39 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { getPlanInfo } from '../lib/plan.js';
 
+// Turns "https://www.MyShop.com/products?x=1" into "myshop.com".
+// Returns '' if the value is not a valid website domain.
+// Must stay compatible with normalizeHost() in api/chat.js.
+function normalizeDomain(value) {
+  if (typeof value !== 'string') return '';
+
+  const raw = value.trim();
+  if (!raw || raw.length > 253) return '';
+
+  let host = '';
+  try {
+    host = new URL(raw.includes('://') ? raw : `https://${raw}`)
+      .hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+
+  // localhost is allowed so owners can test; everything else needs a real
+  // domain like "myshop.com" or "shop.myshop.co.in".
+  if (host === 'localhost') return host;
+
+  const validHost =
+    /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(host);
+
+  return validHost ? host : '';
+}
+
+const DOMAIN_ERROR =
+  'Enter a valid website domain, for example myshop.com.';
+
 export default async function handler(req, res) {
-  if (!['GET', 'POST'].includes(req.method)) {
-    res.setHeader('Allow', 'GET, POST');
+  if (!['GET', 'POST', 'PATCH'].includes(req.method)) {
+    res.setHeader('Allow', 'GET, POST, PATCH');
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
@@ -69,45 +99,7 @@ export default async function handler(req, res) {
 
       const { data: app, error: appError } = await admin
         .from('apps')
-        .select('public_app_id, is_active')
-        .eq('id', existing.app_uuid)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (appError) throw appError;
-
-      if (!app || !app.public_app_id) {
-        return res.status(409).json({
-          error: 'Workspace app mapping is incomplete.'
-        });
-      }
-
-      if (!app.is_active) {
-        return res.status(403).json({
-          error: 'This application is inactive.'
-        });
-      }
-
-      const { plan, expiresAt } = await getPlanInfo(admin, existing.app_uuid);
-
-      return res.status(200).json({
-        success: true,
-        workspace: { ...existing, plan_type: plan, plan_expires_at: expiresAt },
-        publicAppId: app.public_app_id
-      });
-    }
-
-    // POST: Create a workspace if one does not exist.
-    if (existing) {
-      if (!existing.app_uuid) {
-        return res.status(409).json({
-          error: 'Workspace has no verified app mapping.'
-        });
-      }
-
-      const { data: app, error: appError } = await admin
-        .from('apps')
-        .select('public_app_id, is_active')
+        .select('public_app_id, is_active, domain')
         .eq('id', existing.app_uuid)
         .eq('user_id', user.id)
         .maybeSingle();
@@ -132,6 +124,80 @@ export default async function handler(req, res) {
         success: true,
         workspace: { ...existing, plan_type: plan, plan_expires_at: expiresAt },
         publicAppId: app.public_app_id,
+        domain: app.domain || null
+      });
+    }
+
+    // PATCH: Set or change the website domain allowed to use the chatbot.
+    if (req.method === 'PATCH') {
+      if (!existing?.app_uuid) {
+        return res.status(404).json({
+          error: 'No workspace found for this account.'
+        });
+      }
+
+      const domain = normalizeDomain(req.body?.domain);
+
+      if (!domain) {
+        return res.status(400).json({ error: DOMAIN_ERROR });
+      }
+
+      const { data: updated, error: updateError } = await admin
+        .from('apps')
+        .update({ domain })
+        .eq('id', existing.app_uuid)
+        .eq('user_id', user.id)
+        .select('domain')
+        .maybeSingle();
+
+      if (updateError) throw updateError;
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Store not found.' });
+      }
+
+      return res.status(200).json({
+        success: true,
+        domain: updated.domain
+      });
+    }
+
+    // POST: Create a workspace if one does not exist.
+    if (existing) {
+      if (!existing.app_uuid) {
+        return res.status(409).json({
+          error: 'Workspace has no verified app mapping.'
+        });
+      }
+
+      const { data: app, error: appError } = await admin
+        .from('apps')
+        .select('public_app_id, is_active, domain')
+        .eq('id', existing.app_uuid)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (appError) throw appError;
+
+      if (!app || !app.public_app_id) {
+        return res.status(409).json({
+          error: 'Workspace app mapping is incomplete.'
+        });
+      }
+
+      if (!app.is_active) {
+        return res.status(403).json({
+          error: 'This application is inactive.'
+        });
+      }
+
+      const { plan, expiresAt } = await getPlanInfo(admin, existing.app_uuid);
+
+      return res.status(200).json({
+        success: true,
+        workspace: { ...existing, plan_type: plan, plan_expires_at: expiresAt },
+        publicAppId: app.public_app_id,
+        domain: app.domain || null,
         alreadyExists: true
       });
     }
@@ -147,6 +213,13 @@ export default async function handler(req, res) {
       });
     }
 
+    // Domain is required: the chat API refuses stores without one.
+    const domain = normalizeDomain(req.body?.domain);
+
+    if (!domain) {
+      return res.status(400).json({ error: DOMAIN_ERROR });
+    }
+
     const appId = `store_${randomUUID()}`;
     const publicAppId = randomUUID();
 
@@ -156,6 +229,7 @@ export default async function handler(req, res) {
         app_name: storeName,
         user_id: user.id,
         public_app_id: publicAppId,
+        domain,
         is_active: true
       })
       .select('id')
@@ -191,7 +265,8 @@ export default async function handler(req, res) {
     return res.status(201).json({
       success: true,
       workspace: { ...workspace, plan_type: 'Free Trial', plan_expires_at: null },
-      publicAppId
+      publicAppId,
+      domain
     });
 
   } catch (error) {
