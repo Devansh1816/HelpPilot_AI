@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { getPlan } from '../lib/plan.js';
+import { getPlanInfo } from '../lib/plan.js';
 
 export default async function handler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) {
@@ -88,11 +88,11 @@ export default async function handler(req, res) {
         });
       }
 
-      const plan = await getPlan(admin, existing.app_uuid);
+      const { plan, expiresAt } = await getPlanInfo(admin, existing.app_uuid);
 
       return res.status(200).json({
         success: true,
-        workspace: { ...existing, plan_type: plan },
+        workspace: { ...existing, plan_type: plan, plan_expires_at: expiresAt },
         publicAppId: app.public_app_id
       });
     }
@@ -126,11 +126,11 @@ export default async function handler(req, res) {
         });
       }
 
-      const plan = await getPlan(admin, existing.app_uuid);
+      const { plan, expiresAt } = await getPlanInfo(admin, existing.app_uuid);
 
       return res.status(200).json({
         success: true,
-        workspace: { ...existing, plan_type: plan },
+        workspace: { ...existing, plan_type: plan, plan_expires_at: expiresAt },
         publicAppId: app.public_app_id,
         alreadyExists: true
       });
@@ -190,7 +190,7 @@ export default async function handler(req, res) {
 
     return res.status(201).json({
       success: true,
-      workspace: { ...workspace, plan_type: 'Free Trial' },
+      workspace: { ...workspace, plan_type: 'Free Trial', plan_expires_at: null },
       publicAppId
     });
 
