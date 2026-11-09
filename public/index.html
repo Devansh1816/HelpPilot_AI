@@ -197,7 +197,7 @@
             <div class="price-card featured">
                 <span class="popular-badge">BEST VALUE</span>
                 <div class="plan-name">Pro Autopilot</div>
-                <div class="plan-price">₹499 <span>/ month</span></div>
+                <div class="plan-price">₹99 <span>/ month</span></div>
                 <ul class="plan-features">
                     <li>⚡ Unlimited Automated AI Replies</li>
                     <li>⚡ Custom Knowledge Base Training</li>
@@ -216,7 +216,7 @@
             <h2 id="workspace-title" style="font-size: 22px; font-weight: 800; color: #fff;">Workspace Console</h2>
             <span id="plan-status-text" style="font-size: 13px; color: var(--text-sub); margin-top: 4px; display: block;">Active Plan: Free Trial (100 chats)</span>
         </div>
-        <button id="upgrade-btn" class="btn-success" style="width: auto; padding: 12px 20px; font-size: 13px;" onclick="openPaymentModal()">⚡ Upgrade to Pro (₹499/mo)</button>
+        <button id="upgrade-btn" class="btn-success" style="width: auto; padding: 12px 20px; font-size: 13px;" onclick="openPaymentModal()">⚡ Upgrade to Pro (₹99/mo)</button>
     </div>
 
     <div class="stats-grid">
@@ -274,17 +274,17 @@
 <div id="payment-modal" class="modal-overlay hidden">
     <div class="modal-box">
         <h3 style="font-size: 22px; font-weight: 800; margin-bottom: 6px; color: #fff;">Upgrade to Pro Plan</h3>
-        <p style="color: var(--text-sub); font-size: 13px; margin-bottom: 16px;">Get unlimited AI responses & 24/7 Autopilot support for ₹499/month.</p>
+        <p style="color: var(--text-sub); font-size: 13px; margin-bottom: 16px;">Get unlimited AI responses & 24/7 Autopilot support for ₹99/month.</p>
         
         <div style="background: #07090e; padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 18px; text-align: center;">
             <div style="font-size: 11px; color: var(--text-sub); letter-spacing: 0.8px; font-weight: 700;">OPTION 1: SCAN QR CODE</div>
             <div class="qr-card">
-                <img src="qr.png" alt="Scan to Pay ₹499" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=upi://pay?pa=9140241099@ptsbi&pn=HelpPilotAI&am=499&cu=INR';">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=upi%3A%2F%2Fpay%3Fpa%3D9140241099%40ptsbi%26pn%3DHelpPilotAI%26am%3D99%26cu%3DINR" alt="Scan to Pay ₹99">
             </div>
             
             <div style="font-size: 11px; color: var(--text-sub); margin-top: 10px; letter-spacing: 0.8px; font-weight: 700;">OPTION 2: PAY VIA UPI ID</div>
             <div style="font-size: 15px; font-weight: 800; color: #6366f1; margin-top: 4px;">9140241099@ptsbi</div>
-            <p style="font-size: 11px; color: #94a3b8; margin-top: 6px;">Pay ₹499 using GPay, PhonePe, or Paytm.</p>
+            <p style="font-size: 11px; color: #94a3b8; margin-top: 6px;">Pay ₹99 using GPay, PhonePe, or Paytm.</p>
         </div>
 
         <div class="input-group" style="text-align: left;">
@@ -298,7 +298,7 @@
 </div>
 
 <script>
-   const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoksd.supabase.co';
+const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoksd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi';
 
 let supabaseClient = null;
@@ -415,6 +415,10 @@ async function handleForgotPassword() {
         return showMessage('Enter your email above, then click "Forgot password?".');
     }
 
+    if (!supabaseClient) {
+        return showMessage('Authentication service is unavailable.');
+    }
+
     try {
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
             redirectTo: window.location.origin + '/'
@@ -427,23 +431,6 @@ async function handleForgotPassword() {
         console.error('Password reset error:', error);
         showMessage(error.message || 'Unable to send the reset email.');
     }
-}
-
-// When the user opens the reset link, ask for a new password.
-if (supabaseClient) {
-    supabaseClient.auth.onAuthStateChange(async (event) => {
-        if (event !== 'PASSWORD_RECOVERY') return;
-
-        const newPassword = prompt('Enter your new password (min 6 characters):');
-
-        if (!newPassword || newPassword.length < 6) {
-            return showMessage('Password must contain at least 6 characters. Use "Forgot password?" to try again.');
-        }
-
-        const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
-
-        showMessage(error ? error.message : 'Password updated. You are now logged in.');
-    });
 }
 
 function scrollToAuth() {
@@ -650,35 +637,34 @@ async function setupDashboardUser(user) {
                 `Workspace: ${result.workspace.store_name}`
             );
 
-           const isPro = result.workspace.plan_type === 'Pro';
-const expiresAt = result.workspace.plan_expires_at
-    ? new Date(result.workspace.plan_expires_at)
-    : null;
-const daysLeft = expiresAt
-    ? Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)
-    : null;
+            const isPro = result.workspace.plan_type === 'Pro';
+            const expiresAt = result.workspace.plan_expires_at
+                ? new Date(result.workspace.plan_expires_at)
+                : null;
+            const daysLeft = expiresAt
+                ? Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)
+                : null;
 
-setText(
-    'plan-status-text',
-    isPro && expiresAt
-        ? `Account plan: Pro (valid till ${expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })})`
-        : `Account plan: ${result.workspace.plan_type || 'Free Trial'}`
-);
+            setText(
+                'plan-status-text',
+                isPro && expiresAt
+                    ? `Account plan: Pro (valid till ${expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })})`
+                    : `Account plan: ${result.workspace.plan_type || 'Free Trial'}`
+            );
 
-el('admin-payments-panel')?.classList.add('hidden');
+            el('admin-payments-panel')?.classList.add('hidden');
 
-const upgradeBtnEl = el('upgrade-btn');
-if (upgradeBtnEl) {
-    if (isPro && daysLeft !== null && daysLeft > 5) {
-        upgradeBtnEl.classList.add('hidden');
-    } else {
-        upgradeBtnEl.classList.remove('hidden');
-        upgradeBtnEl.textContent = isPro
-            ? '⚡ Renew Pro (₹499/mo)'
-            : '⚡ Upgrade to Pro (₹499/mo)';
-    }
-} Upgrade to Pro (₹499/mo)';
-}
+            const upgradeBtnEl = el('upgrade-btn');
+            if (upgradeBtnEl) {
+                if (isPro && daysLeft !== null && daysLeft > 5) {
+                    upgradeBtnEl.classList.add('hidden');
+                } else {
+                    upgradeBtnEl.classList.remove('hidden');
+                    upgradeBtnEl.textContent = isPro
+                        ? '⚡ Renew Pro (₹99/mo)'
+                        : '⚡ Upgrade to Pro (₹99/mo)';
+                }
+            }
 
             el('kb-question')?.closest('.panel-card')?.classList.remove('hidden');
 
@@ -1120,34 +1106,14 @@ async function copyEmbedCode() {
         showMessage('Unable to copy. Please copy the code manually.');
     }
 }
-    // ===== Forgot password =====
+
+// ===== Password reset (opened from the email link) =====
 (function () {
     const SITE_URL = 'https://helppilotai.vercel.app';
     // Capture synchronously: Supabase clears the URL hash after reading it.
     const startedAsRecovery = /type=recovery/.test(window.location.hash);
 
-    // 1) "Forgot password?" link under the password field
-    const pw = document.getElementById('auth-password');
-    if (pw && !document.getElementById('forgot-password-link')) {
-        const link = document.createElement('a');
-        link.id = 'forgot-password-link';
-        link.href = '#';
-        link.textContent = 'Forgot password?';
-        link.style.cssText = 'display:block;margin-top:8px;font-size:13px;color:#818cf8;text-align:right;';
-        link.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const emailInput = document.querySelector('input[type="email"]');
-            const email = (emailInput?.value || '').trim();
-            if (!email) return showMessage('Enter your email first, then click Forgot password.');
-            if (!supabaseClient) return showMessage('Authentication service is unavailable.');
-            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL });
-            if (error) return showMessage('Could not send reset email. Please try again in a minute.');
-            showMessage('If this email has an account, a reset link has been sent. Check your inbox and spam.');
-        });
-        pw.insertAdjacentElement('afterend', link);
-    }
-
-    // 2) New-password form, shown when the user opens the reset link
+    // New-password form, shown when the user opens the reset link
     function showResetForm() {
         if (document.getElementById('reset-overlay')) return;
         const overlay = document.createElement('div');
