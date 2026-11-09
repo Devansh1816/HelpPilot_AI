@@ -58,6 +58,8 @@ async function saveLog(supabase, app, visitorId, message, status) {
 const normalizeText = text =>
   text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 // Whole-word matching so "management" or "humane" do not escalate.
 const ESCALATION_PATTERN =
   /\b(human|agent|manager|complaint|customer support|speak to (someone|a person)|talk to (someone|a person))\b/i;
@@ -237,39 +239,52 @@ CUSTOMER MESSAGE:
 ${cleanMsg}
 `;
 
+        const deadline = Date.now() + 22000; // total Gemini time budget
+
         for (const model of GEMINI_MODELS) {
-          try {
-            const aiResponse = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-goog-api-key': GEMINI_API_KEY
-                },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: prompt }] }],
-                  generationConfig: { maxOutputTokens: 500 }
-                }),
-                signal: AbortSignal.timeout(8000)
+          for (let attempt = 0; attempt < 2 && !reply; attempt++) {
+            const remaining = deadline - Date.now();
+            if (remaining < 2000) break;
+
+            try {
+              const aiResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': GEMINI_API_KEY
+                  },
+                  body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { maxOutputTokens: 500 }
+                  }),
+                  signal: AbortSignal.timeout(Math.min(9000, remaining))
+                }
+              );
+
+              const aiData = await aiResponse.json();
+
+              if (aiResponse.ok) {
+                reply = aiData.candidates?.[0]?.content?.parts
+                  ?.map(part => part.text || '')
+                  .join('')
+                  .trim() || '';
+                break;
               }
-            );
 
-            const aiData = await aiResponse.json();
-
-            if (aiResponse.ok) {
-              reply = aiData.candidates?.[0]?.content?.parts
-                ?.map(part => part.text || '')
-                .join('')
-                .trim() || '';
-
-              if (reply) break;
-            } else {
               console.error(`Gemini API error (${model}):`, aiResponse.status, JSON.stringify(aiData).slice(0, 300));
+
+              // Temporary errors: retry same model once; anything else: next model
+              if (![429, 500, 503, 504].includes(aiResponse.status)) break;
+              await sleep(600);
+            } catch (modelError) {
+              console.error(`Gemini request error (${model}):`, modelError?.name || modelError);
+              break; // timeout/network: move to next model
             }
-          } catch (modelError) {
-            console.error(`Gemini request error (${model}):`, modelError?.name || modelError);
           }
+
+          if (reply) break;
         }
       } catch (aiError) {
         console.error('Gemini request error:', aiError);
