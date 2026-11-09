@@ -1,7 +1,5 @@
 (function () {
-    const backendUrl = window.location.origin && window.location.origin !== 'null' && !window.location.origin.includes('file://')
-        ? window.location.origin 
-        : 'https://helppilotai.vercel.app';
+   const backendUrl = 'https://helppilotai.vercel.app';
 
     // Inject Styles
     const style = document.createElement('style');
