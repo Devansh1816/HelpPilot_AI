@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+const PAYMENT_COLUMNS = 'id, app_id, utr_number, status, created_at, approved_at';
+
 export default async function handler(req, res) {
   if (!['GET', 'POST', 'PATCH'].includes(req.method)) {
     res.setHeader('Allow', 'GET, POST, PATCH');
@@ -92,7 +94,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       let query = supabase
         .from('payments')
-        .select('id, app_id, utr_number, status, created_at')
+        .select(PAYMENT_COLUMNS)
         .order('created_at', { ascending: false });
 
       if (!isOwner) {
@@ -172,8 +174,16 @@ export default async function handler(req, res) {
           utr_number: cleanUtr,
           status: 'pending'
         }])
-        .select('id, app_id, utr_number, status, created_at')
+        .select(PAYMENT_COLUMNS)
         .single();
+
+      // 23505 = unique violation (two identical submissions at the same moment)
+      if (error?.code === '23505') {
+        return res.status(409).json({
+          success: false,
+          error: 'This payment reference has already been submitted.'
+        });
+      }
 
       if (error) throw error;
 
@@ -204,12 +214,18 @@ export default async function handler(req, res) {
       });
     }
 
+    // Approval time starts the 30-day subscription (read by lib/plan.js).
+    const update = { status };
+    if (status === 'approved') {
+      update.approved_at = new Date().toISOString();
+    }
+
     const { data, error } = await supabase
       .from('payments')
-      .update({ status })
+      .update(update)
       .eq('id', Number(id))
       .eq('status', 'pending')
-      .select('id, app_id, utr_number, status, created_at')
+      .select(PAYMENT_COLUMNS)
       .maybeSingle();
 
     if (error) throw error;
