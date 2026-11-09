@@ -5,7 +5,13 @@ import { hitLimit, clientIp } from '../lib/rate-limit.js';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+// Models are tried in order; if one is overloaded (503), times out, or is
+// unavailable, the next one is used.
+const GEMINI_MODELS = [
+  process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+  'gemini-3.6-flash',
+  'gemini-2.5-flash'
+].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
 // Limits
 const IP_MAX_PER_MINUTE = 12;      // per visitor IP (per instance)
@@ -231,31 +237,39 @@ CUSTOMER MESSAGE:
 ${cleanMsg}
 `;
 
-        const aiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': GEMINI_API_KEY
-            },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { maxOutputTokens: 500 }
-            }),
-            signal: AbortSignal.timeout(15000)
+        for (const model of GEMINI_MODELS) {
+          try {
+            const aiResponse = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-goog-api-key': GEMINI_API_KEY
+                },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: prompt }] }],
+                  generationConfig: { maxOutputTokens: 500 }
+                }),
+                signal: AbortSignal.timeout(8000)
+              }
+            );
+
+            const aiData = await aiResponse.json();
+
+            if (aiResponse.ok) {
+              reply = aiData.candidates?.[0]?.content?.parts
+                ?.map(part => part.text || '')
+                .join('')
+                .trim() || '';
+
+              if (reply) break;
+            } else {
+              console.error(`Gemini API error (${model}):`, aiResponse.status, JSON.stringify(aiData).slice(0, 300));
+            }
+          } catch (modelError) {
+            console.error(`Gemini request error (${model}):`, modelError?.name || modelError);
           }
-        );
-
-        const aiData = await aiResponse.json();
-
-        if (aiResponse.ok) {
-          reply = aiData.candidates?.[0]?.content?.parts
-            ?.map(part => part.text || '')
-            .join('')
-            .trim() || '';
-        } else {
-          console.error('Gemini API error:', aiResponse.status, aiData);
         }
       } catch (aiError) {
         console.error('Gemini request error:', aiError);
