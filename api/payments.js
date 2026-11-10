@@ -54,12 +54,13 @@ export default async function handler(req, res) {
 
     // Verify store ownership for normal users.
     let app = null;
+    let storeName = null;
 
     if (!isOwner) {
       const { data: workspace, error: workspaceError } =
         await supabase
           .from('workspaces')
-          .select('app_uuid')
+          .select('app_uuid, store_name')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -89,6 +90,7 @@ export default async function handler(req, res) {
       }
 
       app = data;
+      storeName = workspace.store_name || null;
     }
 
     // GET: Store owners see their payments; admin sees all.
@@ -188,13 +190,19 @@ export default async function handler(req, res) {
 
       if (error) throw error;
 
-      await sendAdminNotification({
-        subject: 'New HelpPilot AI payment reference',
-        eventType: 'payment_submitted',
-        storeName: app.public_app_id,
-        appId: app.public_app_id,
-        details: 'A store submitted a payment reference. Review it in the admin dashboard; verify payment independently before approval.'
-      });
+      // Email is best-effort: a notification failure must not make a
+      // successfully saved payment submission appear to have failed.
+      try {
+        await sendAdminNotification({
+          subject: 'New HelpPilot AI payment reference',
+          eventType: 'payment_submitted',
+          storeName: storeName || 'Store name unavailable',
+          appId: app.public_app_id,
+          details: 'A store submitted a payment reference. Review it in the admin dashboard; verify payment independently before approval.'
+        });
+      } catch (notificationError) {
+        console.error('Payment submission notification failed:', notificationError?.name || 'unknown_error');
+      }
 
       return res.status(201).json({
         success: true,
