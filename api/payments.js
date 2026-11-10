@@ -248,11 +248,19 @@ export default async function handler(req, res) {
 
     // Notify the store owner after an admin decision; do not expose payment
     // references in email and never let delivery failure change the decision.
-    const { data: workspace } = await supabase
-      .from('workspaces')
-      .select('user_id, store_name')
-      .eq('app_uuid', data.app_id ? data.app_id : '')
+    const { data: paymentOwner } = await supabase
+      .from('payments')
+      .select('app_uuid')
+      .eq('id', data.id)
       .maybeSingle();
+
+    const { data: workspace } = paymentOwner?.app_uuid
+      ? await supabase
+          .from('workspaces')
+          .select('user_id, store_name')
+          .eq('app_uuid', paymentOwner.app_uuid)
+          .maybeSingle()
+      : { data: null };
 
     if (workspace?.user_id) {
       const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
