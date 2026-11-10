@@ -203,21 +203,27 @@ export default async function handler(req, res) {
 
       // Notify only the owner of this app. Do not email the visitor's raw
       // message or visitor ID; email failure must not block the chat response.
-      const { data: workspace } = await supabase
-        .from('workspaces')
-        .select('user_id, store_name')
-        .eq('app_uuid', app.id)
-        .maybeSingle();
+      // Notification lookup/delivery is isolated from the chat response.
+      // A transient database or email-provider error must not turn escalation into a 500.
+      try {
+        const { data: workspace } = await supabase
+          .from('workspaces')
+          .select('user_id, store_name')
+          .eq('app_uuid', app.id)
+          .maybeSingle();
 
-      if (workspace?.user_id) {
-        const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
-        await sendStoreNotification(ownerData?.user?.email, {
-          subject: 'A customer requested human support',
-          eventType: 'human_support_requested',
-          storeName: workspace.store_name || app.app_name,
-          appId: app.public_app_id,
-          details: 'A visitor requested assistance from a human support representative. Please review the conversation in your HelpPilot dashboard.'
-        });
+        if (workspace?.user_id) {
+          const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
+          await sendStoreNotification(ownerData?.user?.email, {
+            subject: 'A customer requested human support',
+            eventType: 'human_support_requested',
+            storeName: workspace.store_name || app.app_name,
+            appId: app.public_app_id,
+            details: 'A visitor requested assistance from a human support representative. Please review the conversation in your HelpPilot dashboard.'
+          });
+        }
+      } catch (notificationError) {
+        console.error('Support notification processing failed:', notificationError?.name || 'unknown_error');
       }
 
       return res.status(200).json({
