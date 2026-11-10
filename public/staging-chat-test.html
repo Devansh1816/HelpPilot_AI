@@ -28,15 +28,8 @@
       <button type="button" data-query="Namaste, meri return policy kya hai?">Test 3 — Hindi: meri return policy kya hai?</button>
       <button type="button" data-query="I need a human agent, please.">Test 4 — Request human support</button>
     </section>
-    <p class="hint">Tap a sample question. The HelpPilot chat bubble is the purple 💬 button at the bottom-right. The first two questions should match the saved FAQ answers.</p>
+    <p class="hint">The HelpPilot chat bubble is the purple 💬 button at the bottom-right. Tap a sample question, then open the chat and send it manually.</p>
   </main>
-  <script src="https://helppilot-ogsmly2n3-help-pilot-ai.vercel.app/widget.js" data-app-id="ae50bd05-d2b2-4f78-9ce1-0fd62d70163b"></script>
-  <script>
-    document.querySelectorAll('[data-query]').forEach(function(button){
-      button.addEventListener('click',function(){
-        window.postMessage({type:'HELPPILOT_SEND_QUERY',query:button.dataset.query},window.location.origin);
-      });
-    });
-  </script>
+  <script src="https://helppilotai-git-notification-system-implem-e73326-help-pilot-ai.vercel.app/widget.js" data-app-id="ae50bd05-d2b2-4f78-9ce1-0fd62d70163b"></script>
 </body>
 </html>
