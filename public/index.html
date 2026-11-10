@@ -780,6 +780,78 @@ async function saveDomain() {
     }
 }
 
+// Use an in-page dialog instead of window.prompt(), which is unavailable
+// in some embedded/browser preview environments.
+function requestNewEmailInDialog(currentEmail) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:20px;';
+
+        const panel = document.createElement('div');
+        panel.style.cssText = 'width:100%;max-width:440px;background:#0f172a;border:1px solid #334155;border-radius:16px;padding:24px;color:#f8fafc;box-shadow:0 20px 50px rgba(0,0,0,.45);';
+
+        const heading = document.createElement('h3');
+        heading.textContent = 'Change account email';
+        heading.style.cssText = 'font-size:20px;font-weight:800;margin:0 0 8px;';
+
+        const current = document.createElement('p');
+        current.textContent = 'Current email: ' + currentEmail;
+        current.style.cssText = 'font-size:13px;color:#cbd5e1;margin:0 0 16px;overflow-wrap:anywhere;';
+
+        const label = document.createElement('label');
+        label.textContent = 'New email address';
+        label.style.cssText = 'display:block;font-size:12px;font-weight:700;margin-bottom:7px;';
+
+        const input = document.createElement('input');
+        input.type = 'email';
+        input.autocomplete = 'email';
+        input.placeholder = 'you@example.com';
+        input.maxLength = 254;
+        input.style.cssText = 'width:100%;padding:12px 14px;border-radius:9px;border:1px solid #334155;background:#07090e;color:#fff;font-size:14px;outline:none;';
+
+        const note = document.createElement('p');
+        note.textContent = 'Supabase will send a verification link to this address. Your current email remains active until verification is complete.';
+        note.style.cssText = 'font-size:12px;line-height:1.5;color:#94a3b8;margin:12px 0 18px;';
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'Cancel';
+        cancel.style.cssText = 'padding:10px 16px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#fff;font-weight:700;cursor:pointer;';
+        const submit = document.createElement('button');
+        submit.type = 'button';
+        submit.textContent = 'Send verification';
+        submit.style.cssText = 'padding:10px 16px;border-radius:8px;border:0;background:#6366f1;color:#fff;font-weight:700;cursor:pointer;';
+
+        let settled = false;
+        const finish = value => {
+            if (settled) return;
+            settled = true;
+            document.removeEventListener('keydown', onKeyDown);
+            overlay.remove();
+            resolve(value);
+        };
+        const onKeyDown = event => {
+            if (event.key === 'Escape') finish(null);
+            if (event.key === 'Enter' && overlay.isConnected) submit.click();
+        };
+
+        cancel.addEventListener('click', () => finish(null));
+        submit.addEventListener('click', () => finish(input.value));
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay) finish(null);
+        });
+        document.addEventListener('keydown', onKeyDown);
+
+        actions.append(cancel, submit);
+        panel.append(heading, current, label, input, note, actions);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        input.focus();
+    });
+}
+
 // Change the authenticated store owner's login email through Supabase's
 // built-in email verification flow. The current email remains active until
 // the new address is confirmed by the account owner.
@@ -795,10 +867,7 @@ async function handleChangeEmail() {
         }
 
         const currentEmail = data.user.email || '';
-        const nextEmail = prompt(
-            `Current account email: ${currentEmail}\\nEnter the new email address. A verification link will be sent to it:`,
-            ''
-        );
+        const nextEmail = await requestNewEmailInDialog(currentEmail);
 
         if (nextEmail === null) return;
 
