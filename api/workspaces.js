@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { getPlanInfo } from '../lib/plan.js';
+import { sendAdminNotification } from '../lib/email.js';
 
 // Turns "https://www.MyShop.com/products?x=1" into "myshop.com".
 // Returns '' if the value is not a valid website domain.
@@ -261,6 +262,15 @@ export default async function handler(req, res) {
 
       throw workspaceError;
     }
+
+    // Best-effort admin alert; email failure must not undo workspace creation.
+    await sendAdminNotification({
+      subject: 'New HelpPilot AI registration',
+      eventType: 'new_registration',
+      storeName,
+      appId: publicAppId,
+      details: 'A new store workspace was created.'
+    });
 
     return res.status(201).json({
       success: true,
