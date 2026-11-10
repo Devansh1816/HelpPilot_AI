@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { getPlan, FREE_TRIAL_CHAT_LIMIT } from '../lib/plan.js';
 import { hitLimit, clientIp } from '../lib/rate-limit.js';
+import { sendStoreNotification } from '../lib/email.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -199,6 +200,25 @@ export default async function handler(req, res) {
 
     if (ESCALATION_PATTERN.test(cleanMsg)) {
       await saveLog(supabase, app, cleanVisitorId, cleanMsg, 'escalated');
+
+      // Notify only the owner of this app. Do not email the visitor's raw
+      // message or visitor ID; email failure must not block the chat response.
+      const { data: workspace } = await supabase
+        .from('workspaces')
+        .select('user_id, store_name')
+        .eq('app_uuid', app.id)
+        .maybeSingle();
+
+      if (workspace?.user_id) {
+        const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
+        await sendStoreNotification(ownerData?.user?.email, {
+          subject: 'A customer requested human support',
+          eventType: 'human_support_requested',
+          storeName: workspace.store_name || app.app_name,
+          appId: app.public_app_id,
+          details: 'A visitor requested assistance from a human support representative. Please review the conversation in your HelpPilot dashboard.'
+        });
+      }
 
       return res.status(200).json({
         reply: 'I am forwarding your request to the store support team. Please wait for assistance.',
