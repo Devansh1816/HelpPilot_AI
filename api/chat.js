@@ -214,14 +214,7 @@ export default async function handler(req, res) {
 
         if (workspace?.user_id) {
           const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
-
-          // In Preview only, route escalation test notifications to the
-          // configured admin inbox. Production always notifies the real owner.
-          const notificationEmail = process.env.VERCEL_ENV === 'preview'
-            ? (process.env.EMAILJS_ADMIN_EMAIL || ownerData?.user?.email)
-            : ownerData?.user?.email;
-
-          await sendStoreNotification(notificationEmail, {
+          await sendStoreNotification(ownerData?.user?.email, {
             subject: 'A customer requested human support',
             eventType: 'human_support_requested',
             storeName: workspace.store_name || app.app_name,
