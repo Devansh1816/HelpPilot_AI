@@ -16,9 +16,9 @@ export default async function handler(req, res) {
     const url = process.env.SUPABASE_URL;
     const anonKey = process.env.SUPABASE_ANON_KEY;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const ownerUserId = process.env.OWNER_USER_ID;
+    const ownerUserId = process.env.OWNER_USER_ID || '';
 
-    if (!url || !anonKey || !serviceKey || !ownerUserId) {
+    if (!url || !anonKey || !serviceKey) {
       return res.status(500).json({
         success: false,
         error: 'Server configuration error.'
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     }
 
     const user = authData.user;
-    const isOwner = user.id === ownerUserId;
+    const isOwner = Boolean(ownerUserId && user.id === ownerUserId);
     const supabase = createClient(url, serviceKey);
 
     // Verify store ownership for normal users.
