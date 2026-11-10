@@ -252,6 +252,13 @@
         <div id="payment-requests-list" style="margin-top: 12px;">Loading payment requests...</div>
     </div>
 
+    <div id="admin-stores-panel" class="panel-card hidden">
+        <div class="panel-title">🏬 Registered Stores & Management</div>
+        <div class="panel-subtitle">Platform-wide store directory. Review each store's activity, conversations, FAQs and subscription status.</div>
+        <div id="admin-store-summary" class="stats-grid" style="margin-top:12px;"></div>
+        <div id="admin-stores-list" style="margin-top:12px;">Loading registered stores...</div>
+    </div>
+
     <div class="panel-card">
         <div class="panel-title">📚 Step 1: Knowledge Base Training</div>
         <div class="panel-subtitle">Add your store policies and FAQs for automated AI responses.</div>
@@ -607,6 +614,7 @@ async function setupDashboardUser(user) {
             setText('plan-status-text', 'Administrator account');
 
             el('admin-payments-panel')?.classList.remove('hidden');
+            el('admin-stores-panel')?.classList.remove('hidden');
             el('store-subscription-panel')?.classList.add('hidden');
             el('upgrade-btn')?.classList.add('hidden');
 
@@ -688,6 +696,7 @@ async function setupDashboardUser(user) {
             );
 
             el('admin-payments-panel')?.classList.add('hidden');
+            el('admin-stores-panel')?.classList.add('hidden');
             el('store-subscription-panel')?.classList.remove('hidden');
 
             const upgradeBtnEl = el('upgrade-btn');
@@ -1106,6 +1115,90 @@ async function loadKnowledgeBase() {
     });
 }
 
+// Load platform-wide store directory (admin-only endpoint).
+async function loadAdminStores() {
+    if (!isSuperAdmin) return;
+    const panel = el('admin-stores-panel');
+    const list = el('admin-stores-list');
+    if (!panel || !list) return;
+    const result = await apiRequest('/api/admin-stores');
+    const stores = result.data || [];
+    setText('stat-kb-count', result.summary?.knowledgeEntries ?? 0);
+
+    const summary = el('admin-store-summary');
+    if (summary) {
+        summary.replaceChildren();
+        [
+            ['Registered stores', result.summary?.stores ?? stores.length],
+            ['Active stores', result.summary?.activeStores ?? 0],
+            ['Total store chats', result.summary?.conversations ?? 0],
+            ['Knowledge FAQs', result.summary?.knowledgeEntries ?? 0]
+        ].forEach(([label, value]) => {
+            const card = createTextElement('div', 'stat-card', '');
+            card.appendChild(createTextElement('div', 'stat-card-title', label));
+            card.appendChild(createTextElement('div', 'stat-card-value', String(value)));
+            summary.appendChild(card);
+        });
+    }
+
+    list.replaceChildren();
+    if (!stores.length) {
+        list.appendChild(createTextElement('p', '', 'No registered stores found yet.'));
+        return;
+    }
+
+    stores.forEach(store => {
+        const card = createTextElement('div', 'payment-item', '');
+        card.style.display = 'flex';
+        card.style.justifyContent = 'space-between';
+        card.style.alignItems = 'center';
+        card.style.flexWrap = 'wrap';
+        card.style.gap = '14px';
+
+        const details = createTextElement('div', '', '');
+        details.style.minWidth = '220px';
+        details.style.flex = '1';
+        details.appendChild(createTextElement('strong', '', store.store_name || store.app_name || 'Unnamed store'));
+        details.appendChild(createTextElement('p', '', store.owner_email || 'Owner email unavailable'));
+        details.appendChild(createTextElement('p', '', 'Domain: ' + (store.domain || 'Not configured')));
+        details.appendChild(createTextElement('p', '', 'Plan: ' + (store.plan_type || 'Free Trial') +
+            (store.plan_expires_at ? ' · Expires ' + new Date(store.plan_expires_at).toLocaleDateString('en-IN') : '')));
+        details.appendChild(createTextElement('p', '', 'Chats: ' + (store.conversations ?? 0) +
+            ' · FAQs: ' + (store.knowledge_entries ?? 0) +
+            ' · Payments: ' + (store.payment_submissions ?? 0)));
+        const status = createTextElement('p', '', store.is_active ? '● Active' : '● Suspended');
+        status.style.color = store.is_active ? '#34d399' : '#f87171';
+        status.style.fontWeight = '700';
+        details.appendChild(status);
+
+        const toggle = createTextElement('button', store.is_active ? 'btn-secondary' : 'btn-success',
+            store.is_active ? 'Suspend store' : 'Activate store');
+        toggle.type = 'button';
+        toggle.style.width = 'auto';
+        toggle.style.padding = '10px 14px';
+        toggle.addEventListener('click', () => setStoreActive(store.app_uuid, !store.is_active, store.store_name));
+        card.append(details, toggle);
+        list.appendChild(card);
+    });
+}
+
+async function setStoreActive(appId, isActive, storeName) {
+    if (!isSuperAdmin) return showMessage('Administrator access required.');
+    const action = isActive ? 'activate' : 'suspend';
+    if (!confirm('Are you sure you want to ' + action + ' ' + (storeName || 'this store') + '?')) return;
+    try {
+        await apiRequest('/api/admin-stores', {
+            method: 'PATCH',
+            body: JSON.stringify({ appId, is_active: isActive })
+        });
+        showMessage('Store ' + (isActive ? 'activated' : 'suspended') + '.');
+        await loadAdminStores();
+    } catch (error) {
+        console.error('Store management error:', error);
+        showMessage(error.message || 'Unable to update store status.');
+    }
+}
+
 // Load payments.
 async function loadPayments() {
     const result = await apiRequest('/api/payments');
@@ -1218,7 +1311,7 @@ async function loadDashboardData() {
         await loadAnalytics();
 
         if (isSuperAdmin) {
-            await loadPayments();
+            await Promise.all([loadPayments(), loadAdminStores()]);
         } else {
             await Promise.all([
                 loadKnowledgeBase(),
