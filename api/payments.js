@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendAdminNotification, sendStoreNotification } from '../lib/email.js';
 
 const PAYMENT_COLUMNS = 'id, app_id, utr_number, status, created_at, approved_at';
 
@@ -187,6 +188,14 @@ export default async function handler(req, res) {
 
       if (error) throw error;
 
+      await sendAdminNotification({
+        subject: 'New HelpPilot AI payment reference',
+        eventType: 'payment_submitted',
+        storeName: app.public_app_id,
+        appId: app.public_app_id,
+        details: 'A store submitted a payment reference. Review it in the admin dashboard; verify payment independently before approval.'
+      });
+
       return res.status(201).json({
         success: true,
         data
@@ -234,6 +243,25 @@ export default async function handler(req, res) {
       return res.status(404).json({
         success: false,
         error: 'Pending payment not found.'
+      });
+    }
+
+    // Notify the store owner after an admin decision; do not expose payment
+    // references in email and never let delivery failure change the decision.
+    const { data: workspace } = await supabase
+      .from('workspaces')
+      .select('user_id, store_name')
+      .eq('app_uuid', data.app_id ? data.app_id : '')
+      .maybeSingle();
+
+    if (workspace?.user_id) {
+      const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
+      await sendStoreNotification(ownerData?.user?.email, {
+        subject: `HelpPilot AI payment ${status}`,
+        eventType: `payment_${status}`,
+        storeName: workspace.store_name,
+        appId: data.app_id,
+        details: `Your payment reference was ${status}. Please check your dashboard for details.`
       });
     }
 
