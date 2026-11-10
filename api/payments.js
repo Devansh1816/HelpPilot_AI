@@ -97,7 +97,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       let query = supabase
         .from('payments')
-        .select(PAYMENT_COLUMNS)
+        .select(isOwner ? PAYMENT_COLUMNS : 'id, status, created_at, approved_at')
         .order('created_at', { ascending: false });
 
       if (!isOwner) {
