@@ -15,7 +15,10 @@ export default async function handler(req, res) {
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         const ownerUserId = process.env.OWNER_USER_ID;
 
-        if (!url || !anonKey || !serviceKey || !ownerUserId) {
+        // OWNER_USER_ID is only needed to grant platform-admin visibility.
+        // Store owners must still be able to view their own conversations
+        // when the optional platform-admin ID is not configured.
+        if (!url || !anonKey || !serviceKey) {
             return res.status(500).json({
                 success: false,
                 error: 'Server configuration error.'
@@ -34,9 +37,7 @@ export default async function handler(req, res) {
             });
         }
 
-        // Verify the user's Supabase session.
         const authClient = createClient(url, anonKey);
-
         const { data: authData, error: authError } =
             await authClient.auth.getUser(token);
 
@@ -48,27 +49,22 @@ export default async function handler(req, res) {
         }
 
         const user = authData.user;
-        const isOwner = user.id === ownerUserId;
-
+        const isOwner = Boolean(ownerUserId && user.id === ownerUserId);
         const admin = createClient(url, serviceKey);
 
         let query = admin
             .from('conversations')
-            .select(
-                'id, app_id, visitor_id, status, created_at, message'
-            )
+            .select('id, app_id, visitor_id, status, created_at, message')
             .order('created_at', { ascending: false })
             .limit(50);
 
-        // Store owners can only see conversations belonging
-        // to their own verified application.
+        // Non-admin store owners can only see their own verified app.
         if (!isOwner) {
-            const { data: workspace, error: workspaceError } =
-                await admin
-                    .from('workspaces')
-                    .select('app_uuid')
-                    .eq('user_id', user.id)
-                    .maybeSingle();
+            const { data: workspace, error: workspaceError } = await admin
+                .from('workspaces')
+                .select('app_uuid')
+                .eq('user_id', user.id)
+                .maybeSingle();
 
             if (workspaceError) throw workspaceError;
 
@@ -99,17 +95,14 @@ export default async function handler(req, res) {
         }
 
         const { data, error } = await query;
-
         if (error) throw error;
 
         return res.status(200).json({
             success: true,
             data: data || []
         });
-
     } catch (error) {
         console.error('Conversations API error:', error);
-
         return res.status(500).json({
             success: false,
             error: 'Unable to load conversations.'
