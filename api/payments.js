@@ -246,31 +246,35 @@ export default async function handler(req, res) {
       });
     }
 
-    // Notify the store owner after an admin decision; do not expose payment
-    // references in email and never let delivery failure change the decision.
-    const { data: paymentOwner } = await supabase
-      .from('payments')
-      .select('app_uuid')
-      .eq('id', data.id)
-      .maybeSingle();
+    // Notification processing is isolated after the payment state change.
+    // It must never make a completed approval/rejection appear to have failed.
+    try {
+      const { data: paymentOwner } = await supabase
+        .from('payments')
+        .select('app_uuid')
+        .eq('id', data.id)
+        .maybeSingle();
 
-    const { data: workspace } = paymentOwner?.app_uuid
-      ? await supabase
-          .from('workspaces')
-          .select('user_id, store_name')
-          .eq('app_uuid', paymentOwner.app_uuid)
-          .maybeSingle()
-      : { data: null };
+      const { data: workspace } = paymentOwner?.app_uuid
+        ? await supabase
+            .from('workspaces')
+            .select('user_id, store_name')
+            .eq('app_uuid', paymentOwner.app_uuid)
+            .maybeSingle()
+        : { data: null };
 
-    if (workspace?.user_id) {
-      const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
-      await sendStoreNotification(ownerData?.user?.email, {
-        subject: `HelpPilot AI payment ${status}`,
-        eventType: `payment_${status}`,
-        storeName: workspace.store_name,
-        appId: data.app_id,
-        details: `Your payment reference was ${status}. Please check your dashboard for details.`
-      });
+      if (workspace?.user_id) {
+        const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
+        await sendStoreNotification(ownerData?.user?.email, {
+          subject: `HelpPilot AI payment ${status}`,
+          eventType: `payment_${status}`,
+          storeName: workspace.store_name,
+          appId: data.app_id,
+          details: `Your payment reference was ${status}. Please check your dashboard for details.`
+        });
+      }
+    } catch (notificationError) {
+      console.error('Payment decision notification failed:', notificationError?.name || 'unknown_error');
     }
 
     return res.status(200).json({
