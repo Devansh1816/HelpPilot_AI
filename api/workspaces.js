@@ -264,19 +264,20 @@ export default async function handler(req, res) {
     }
 
     // Best-effort transactional emails; provider failures must not undo signup.
-    await sendWelcomeEmail(
-      user.email,
-      user.user_metadata?.full_name || user.user_metadata?.name || storeName,
-      publicAppId
-    );
-
-    await sendAdminNotification({
-      subject: 'New HelpPilot AI registration',
-      eventType: 'new_registration',
-      storeName,
-      appId: publicAppId,
-      details: 'A new store workspace was created.'
-    });
+    await Promise.allSettled([
+      sendWelcomeEmail(
+        user.email,
+        user.user_metadata?.full_name || user.user_metadata?.name || storeName,
+        publicAppId
+      ),
+      sendAdminNotification({
+        subject: 'New HelpPilot AI registration',
+        eventType: 'new_registration',
+        storeName,
+        appId: publicAppId,
+        details: 'A new store workspace was created.'
+      })
+    ]);
 
     return res.status(201).json({
       success: true,
