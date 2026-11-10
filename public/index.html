@@ -39,8 +39,9 @@
 
         .nav-right { display: flex; align-items: center; gap: 16px; }
         .status-badge {
-            padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); white-space: nowrap;
+            padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); white-space: nowrap; cursor: pointer; font-family: inherit;
         }
+        .status-badge:hover { background: rgba(16, 185, 129, 0.16); }
 
         .hero-section {
             max-width: 1100px; width: 100%; margin: 50px auto 30px auto; padding: 0 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px;
@@ -135,7 +136,7 @@
 <header>
     <a href="/" class="brand-logo">🤖 HelpPilot <span>AI</span></a>
     <div class="nav-right" id="user-status">
-        <span id="trial-badge" class="status-badge">🟢 System Active</span>
+        <button type="button" id="trial-badge" class="status-badge" onclick="handleChangeEmail()" title="Change the email for this store account">🟢 System Active</button>
         <button id="logout-btn" onclick="handleLogout()" class="btn-secondary hidden" style="width: auto; padding: 6px 14px; font-size: 12px;">Logout</button>
     </div>
 </header>
@@ -776,6 +777,49 @@ async function saveDomain() {
     } catch (error) {
         console.error('Save domain error:', error);
         showMessage(error.message || 'Unable to save domain.');
+    }
+}
+
+// Change the authenticated store owner's login email through Supabase's
+// built-in email verification flow. The current email remains active until
+// the new address is confirmed by the account owner.
+async function handleChangeEmail() {
+    if (!supabaseClient || !currentToken) {
+        return showMessage('Please log in before changing your account email.');
+    }
+
+    try {
+        const { data, error: userError } = await supabaseClient.auth.getUser();
+        if (userError || !data?.user) {
+            throw new Error('Your session has expired. Please log in again.');
+        }
+
+        const currentEmail = data.user.email || '';
+        const nextEmail = prompt(
+            `Current account email: ${currentEmail}\\nEnter the new email address. A verification link will be sent to it:`,
+            ''
+        );
+
+        if (nextEmail === null) return;
+
+        const cleanEmail = nextEmail.trim();
+        if (!cleanEmail || cleanEmail.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(cleanEmail)) {
+            return showMessage('Please enter a valid email address.');
+        }
+
+        if (cleanEmail.toLowerCase() === currentEmail.toLowerCase()) {
+            return showMessage('That is already your account email.');
+        }
+
+        const { error } = await supabaseClient.auth.updateUser({ email: cleanEmail });
+        if (error) throw error;
+
+        showMessage(
+            'Verification requested. Open the message sent to your new email and confirm it. Your current account email stays active until verification is complete.'
+        );
+    } catch (error) {
+        console.error('Account email update request failed:', error?.name || 'unknown_error');
+        showMessage(error.message || 'Unable to request an email change. Please try again.');
     }
 }
 
