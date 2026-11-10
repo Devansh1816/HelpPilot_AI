@@ -39,8 +39,9 @@
 
         .nav-right { display: flex; align-items: center; gap: 16px; }
         .status-badge {
-            padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); white-space: nowrap;
+            padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); white-space: nowrap; cursor: pointer; font-family: inherit;
         }
+        .status-badge:hover { background: rgba(16, 185, 129, 0.16); }
 
         .hero-section {
             max-width: 1100px; width: 100%; margin: 50px auto 30px auto; padding: 0 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px;
@@ -135,7 +136,7 @@
 <header>
     <a href="/" class="brand-logo">🤖 HelpPilot <span>AI</span></a>
     <div class="nav-right" id="user-status">
-        <span id="trial-badge" class="status-badge">🟢 System Active</span>
+        <button type="button" id="trial-badge" class="status-badge" onclick="handleChangeEmail()" title="Change the email for this store account">🟢 System Active</button>
         <button id="logout-btn" onclick="handleLogout()" class="btn-secondary hidden" style="width: auto; padding: 6px 14px; font-size: 12px;">Logout</button>
     </div>
 </header>
@@ -238,10 +239,24 @@
         </div>
     </div>
 
+    <div id="store-subscription-panel" class="panel-card hidden">
+        <div class="panel-title">⭐ Subscription</div>
+        <div class="panel-subtitle">Manage your plan and view payment verification status.</div>
+        <div id="store-subscription-summary" class="kb-item">Loading subscription details...</div>
+        <div class="panel-title" style="font-size:15px;margin-top:18px;">Payment history</div>
+        <div id="store-payment-history" style="margin-top:12px;">No payment submissions yet.</div>
+    </div>
     <div id="admin-payments-panel" class="panel-card hidden">
         <div class="panel-title" style="color: #4ade80;">💳 Pending Pro Upgrades (Admin Control)</div>
         <div class="panel-subtitle">Submitted UTR numbers from users for Pro subscription verification.</div>
         <div id="payment-requests-list" style="margin-top: 12px;">Loading payment requests...</div>
+    </div>
+
+    <div id="admin-stores-panel" class="panel-card hidden">
+        <div class="panel-title">🏬 Registered Stores & Management</div>
+        <div class="panel-subtitle">Platform-wide store directory. Review each store's activity, conversations, FAQs and subscription status.</div>
+        <div id="admin-store-summary" class="stats-grid" style="margin-top:12px;"></div>
+        <div id="admin-stores-list" style="margin-top:12px;">Loading registered stores...</div>
     </div>
 
     <div class="panel-card">
@@ -307,14 +322,14 @@
             <input type="text" id="payment-utr" placeholder="Enter 12-digit UTR Number">
         </div>
 
-        <button class="btn-success" style="margin-bottom: 10px;" onclick="submitPaymentUTR()">Submit UTR for Instant Upgrade</button>
+        <button class="btn-success" style="margin-bottom: 10px;" onclick="submitPaymentUTR()">Submit Payment for Verification</button>
         <button class="btn-secondary" onclick="closePaymentModal()">Cancel</button>
     </div>
 </div>
 
 <script>
-const SUPABASE_URL = 'https://ymvhnwcteeonvwhhoksd.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_iFIOgMMDWFEwNEwT-0xKtw_Eurj7szi';
+const SUPABASE_URL = 'https://owngvqizifrlrsysdxbw.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_eqdwPU0UfdMHr_XvQFpaog_yXgZW42M';
 
 let supabaseClient = null;
 let currentAppId = null;
@@ -599,6 +614,8 @@ async function setupDashboardUser(user) {
             setText('plan-status-text', 'Administrator account');
 
             el('admin-payments-panel')?.classList.remove('hidden');
+            el('admin-stores-panel')?.classList.remove('hidden');
+            el('store-subscription-panel')?.classList.add('hidden');
             el('upgrade-btn')?.classList.add('hidden');
 
             el('kb-question')?.closest('.panel-card')?.classList.add('hidden');
@@ -679,6 +696,8 @@ async function setupDashboardUser(user) {
             );
 
             el('admin-payments-panel')?.classList.add('hidden');
+            el('admin-stores-panel')?.classList.add('hidden');
+            el('store-subscription-panel')?.classList.remove('hidden');
 
             const upgradeBtnEl = el('upgrade-btn');
             if (upgradeBtnEl) {
@@ -776,6 +795,118 @@ async function saveDomain() {
     } catch (error) {
         console.error('Save domain error:', error);
         showMessage(error.message || 'Unable to save domain.');
+    }
+}
+
+// Use an in-page dialog instead of window.prompt(), which is unavailable
+// in some embedded/browser preview environments.
+function requestNewEmailInDialog(currentEmail) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:20px;';
+
+        const panel = document.createElement('div');
+        panel.style.cssText = 'width:100%;max-width:440px;background:#0f172a;border:1px solid #334155;border-radius:16px;padding:24px;color:#f8fafc;box-shadow:0 20px 50px rgba(0,0,0,.45);';
+
+        const heading = document.createElement('h3');
+        heading.textContent = 'Change account email';
+        heading.style.cssText = 'font-size:20px;font-weight:800;margin:0 0 8px;';
+
+        const current = document.createElement('p');
+        current.textContent = 'Current email: ' + currentEmail;
+        current.style.cssText = 'font-size:13px;color:#cbd5e1;margin:0 0 16px;overflow-wrap:anywhere;';
+
+        const label = document.createElement('label');
+        label.textContent = 'New email address';
+        label.style.cssText = 'display:block;font-size:12px;font-weight:700;margin-bottom:7px;';
+
+        const input = document.createElement('input');
+        input.type = 'email';
+        input.autocomplete = 'email';
+        input.placeholder = 'you@example.com';
+        input.maxLength = 254;
+        input.style.cssText = 'width:100%;padding:12px 14px;border-radius:9px;border:1px solid #334155;background:#07090e;color:#fff;font-size:14px;outline:none;';
+
+        const note = document.createElement('p');
+        note.textContent = 'Supabase will send a verification link to this address. Your current email remains active until verification is complete.';
+        note.style.cssText = 'font-size:12px;line-height:1.5;color:#94a3b8;margin:12px 0 18px;';
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'Cancel';
+        cancel.style.cssText = 'padding:10px 16px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#fff;font-weight:700;cursor:pointer;';
+        const submit = document.createElement('button');
+        submit.type = 'button';
+        submit.textContent = 'Send verification';
+        submit.style.cssText = 'padding:10px 16px;border-radius:8px;border:0;background:#6366f1;color:#fff;font-weight:700;cursor:pointer;';
+
+        let settled = false;
+        const finish = value => {
+            if (settled) return;
+            settled = true;
+            document.removeEventListener('keydown', onKeyDown);
+            overlay.remove();
+            resolve(value);
+        };
+        const onKeyDown = event => {
+            if (event.key === 'Escape') finish(null);
+            if (event.key === 'Enter' && overlay.isConnected) submit.click();
+        };
+
+        cancel.addEventListener('click', () => finish(null));
+        submit.addEventListener('click', () => finish(input.value));
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay) finish(null);
+        });
+        document.addEventListener('keydown', onKeyDown);
+
+        actions.append(cancel, submit);
+        panel.append(heading, current, label, input, note, actions);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        input.focus();
+    });
+}
+
+// Change the authenticated store owner's login email through Supabase's
+// built-in email verification flow. The current email remains active until
+// the new address is confirmed by the account owner.
+async function handleChangeEmail() {
+    if (!supabaseClient || !currentToken) {
+        return showMessage('Please log in before changing your account email.');
+    }
+
+    try {
+        const { data, error: userError } = await supabaseClient.auth.getUser();
+        if (userError || !data?.user) {
+            throw new Error('Your session has expired. Please log in again.');
+        }
+
+        const currentEmail = data.user.email || '';
+        const nextEmail = await requestNewEmailInDialog(currentEmail);
+
+        if (nextEmail === null) return;
+
+        const cleanEmail = nextEmail.trim();
+        if (!cleanEmail || cleanEmail.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(cleanEmail)) {
+            return showMessage('Please enter a valid email address.');
+        }
+
+        if (cleanEmail.toLowerCase() === currentEmail.toLowerCase()) {
+            return showMessage('That is already your account email.');
+        }
+
+        const { error } = await supabaseClient.auth.updateUser({ email: cleanEmail });
+        if (error) throw error;
+
+        showMessage(
+            'Verification requested. Open the message sent to your new email and confirm it. Your current account email stays active until verification is complete.'
+        );
+    } catch (error) {
+        console.error('Account email update request failed:', error?.name || 'unknown_error');
+        showMessage(error.message || 'Unable to request an email change. Please try again.');
     }
 }
 
@@ -984,107 +1115,145 @@ async function loadKnowledgeBase() {
     });
 }
 
-// Load payments.
-async function loadPayments() {
-    const result = await apiRequest('/api/payments');
+// Load platform-wide store directory (admin-only endpoint).
+async function loadAdminStores() {
+    if (!isSuperAdmin) return;
+    const panel = el('admin-stores-panel');
+    const list = el('admin-stores-list');
+    if (!panel || !list) return;
+    const result = await apiRequest('/api/admin-stores');
+    const stores = result.data || [];
+    setText('stat-kb-count', result.summary?.knowledgeEntries ?? 0);
 
-    const list = el('payment-requests-list');
-    if (!list) return;
+    const summary = el('admin-store-summary');
+    if (summary) {
+        summary.replaceChildren();
+        [
+            ['Registered stores', result.summary?.stores ?? stores.length],
+            ['Active stores', result.summary?.activeStores ?? 0],
+            ['Total store chats', result.summary?.conversations ?? 0],
+            ['Knowledge FAQs', result.summary?.knowledgeEntries ?? 0]
+        ].forEach(([label, value]) => {
+            const card = createTextElement('div', 'stat-card', '');
+            card.appendChild(createTextElement('div', 'stat-card-title', label));
+            card.appendChild(createTextElement('div', 'stat-card-value', String(value)));
+            summary.appendChild(card);
+        });
+    }
 
     list.replaceChildren();
-
-    const payments = result.data || [];
-
-    if (payments.length === 0) {
-        list.appendChild(
-            createTextElement(
-                'p',
-                '',
-                'No payment submissions yet.'
-            )
-        );
+    if (!stores.length) {
+        list.appendChild(createTextElement('p', '', 'No registered stores found yet.'));
         return;
     }
 
+    stores.forEach(store => {
+        const card = createTextElement('div', 'payment-item', '');
+        card.style.display = 'flex';
+        card.style.justifyContent = 'space-between';
+        card.style.alignItems = 'center';
+        card.style.flexWrap = 'wrap';
+        card.style.gap = '14px';
+
+        const details = createTextElement('div', '', '');
+        details.style.minWidth = '220px';
+        details.style.flex = '1';
+        details.appendChild(createTextElement('strong', '', store.store_name || store.app_name || 'Unnamed store'));
+        details.appendChild(createTextElement('p', '', store.owner_email || 'Owner email unavailable'));
+        details.appendChild(createTextElement('p', '', 'Domain: ' + (store.domain || 'Not configured')));
+        details.appendChild(createTextElement('p', '', 'Plan: ' + (store.plan_type || 'Free Trial') +
+            (store.plan_expires_at ? ' · Expires ' + new Date(store.plan_expires_at).toLocaleDateString('en-IN') : '')));
+        details.appendChild(createTextElement('p', '', 'Chats: ' + (store.conversations ?? 0) +
+            ' · FAQs: ' + (store.knowledge_entries ?? 0) +
+            ' · Payments: ' + (store.payment_submissions ?? 0)));
+        const status = createTextElement('p', '', store.is_active ? '● Active' : '● Suspended');
+        status.style.color = store.is_active ? '#34d399' : '#f87171';
+        status.style.fontWeight = '700';
+        details.appendChild(status);
+
+        const toggle = createTextElement('button', store.is_active ? 'btn-secondary' : 'btn-success',
+            store.is_active ? 'Suspend store' : 'Activate store');
+        toggle.type = 'button';
+        toggle.style.width = 'auto';
+        toggle.style.padding = '10px 14px';
+        toggle.addEventListener('click', () => setStoreActive(store.app_uuid, !store.is_active, store.store_name));
+        card.append(details, toggle);
+        list.appendChild(card);
+    });
+}
+
+async function setStoreActive(appId, isActive, storeName) {
+    if (!isSuperAdmin) return showMessage('Administrator access required.');
+    const action = isActive ? 'activate' : 'suspend';
+    if (!confirm('Are you sure you want to ' + action + ' ' + (storeName || 'this store') + '?')) return;
+    try {
+        await apiRequest('/api/admin-stores', {
+            method: 'PATCH',
+            body: JSON.stringify({ appId, is_active: isActive })
+        });
+        showMessage('Store ' + (isActive ? 'activated' : 'suspended') + '.');
+        await loadAdminStores();
+    } catch (error) {
+        console.error('Store management error:', error);
+        showMessage(error.message || 'Unable to update store status.');
+    }
+}
+
+// Load payments.
+async function loadPayments() {
+    const result = await apiRequest('/api/payments');
+    const payments = result.data || [];
+
+    if (!isSuperAdmin) {
+        const summary = el('store-subscription-summary');
+        const history = el('store-payment-history');
+        if (!summary || !history) return;
+        summary.textContent = el('plan-status-text')?.textContent || 'Free Trial';
+        history.replaceChildren();
+        if (payments.length === 0) {
+            history.appendChild(createTextElement('p', '', 'No payment submissions yet.'));
+            return;
+        }
+        payments.forEach(payment => {
+            const card = createTextElement('div', 'payment-item', '');
+            card.appendChild(createTextElement('strong', '', String(payment.status || 'pending').toUpperCase()));
+            card.appendChild(createTextElement('p', '', 'Submitted: ' + new Date(payment.created_at).toLocaleString('en-IN')));
+            if (payment.approved_at) card.appendChild(createTextElement('p', '', 'Pro activated: ' + new Date(payment.approved_at).toLocaleDateString('en-IN')));
+            history.appendChild(card);
+        });
+        return;
+    }
+
+    const list = el('payment-requests-list');
+    if (!list) return;
+    list.replaceChildren();
+    if (payments.length === 0) {
+        list.appendChild(createTextElement('p', '', 'No payment submissions yet.'));
+        return;
+    }
     payments.forEach(payment => {
         const card = createTextElement('div', 'payment-item', '');
-
         card.style.display = 'flex';
         card.style.justifyContent = 'space-between';
         card.style.alignItems = 'center';
         card.style.flexWrap = 'wrap';
         card.style.gap = '12px';
-
         const details = createTextElement('div', '', '');
-
-        details.appendChild(
-            createTextElement(
-                'div',
-                '',
-                `App ID: ${payment.app_id}`
-            )
-        );
-
-        details.appendChild(
-            createTextElement(
-                'div',
-                '',
-                `UTR: ${payment.utr_number}`
-            )
-        );
-
-        details.appendChild(
-            createTextElement(
-                'div',
-                '',
-                `Date: ${new Date(payment.created_at).toLocaleString()}`
-            )
-        );
-
-        details.appendChild(
-            createTextElement(
-                'div',
-                '',
-                `Status: ${payment.status}`
-            )
-        );
-
+        details.appendChild(createTextElement('div', '', 'Store App ID: ' + payment.app_id));
+        details.appendChild(createTextElement('div', '', 'UTR: ' + payment.utr_number));
+        details.appendChild(createTextElement('div', '', 'Date: ' + new Date(payment.created_at).toLocaleString()));
+        details.appendChild(createTextElement('div', '', 'Status: ' + payment.status));
         card.appendChild(details);
-
-        if (isSuperAdmin && payment.status === 'pending') {
+        if (payment.status === 'pending') {
             const actions = createTextElement('div', '', '');
-
-            const approveButton = createTextElement(
-                'button',
-                'btn-success',
-                'Approve'
-            );
-
-            approveButton.style.width = 'auto';
-            approveButton.style.padding = '8px 12px';
-
-            approveButton.addEventListener('click', () => {
-                approveProUser(payment.id, 'approved');
-            });
-
-            const rejectButton = createTextElement(
-                'button',
-                'btn-secondary',
-                'Reject'
-            );
-
-            rejectButton.style.width = 'auto';
-            rejectButton.style.padding = '8px 12px';
-            rejectButton.style.marginLeft = '8px';
-
-            rejectButton.addEventListener('click', () => {
-                approveProUser(payment.id, 'rejected');
-            });
-
-            actions.append(approveButton, rejectButton);
-            card.appendChild(actions);
+            const approveButton = createTextElement('button', 'btn-success', 'Approve');
+            approveButton.style.width = 'auto'; approveButton.style.padding = '8px 12px';
+            approveButton.addEventListener('click', () => approveProUser(payment.id, 'approved'));
+            const rejectButton = createTextElement('button', 'btn-secondary', 'Reject');
+            rejectButton.style.width = 'auto'; rejectButton.style.padding = '8px 12px'; rejectButton.style.marginLeft = '8px';
+            rejectButton.addEventListener('click', () => approveProUser(payment.id, 'rejected'));
+            actions.append(approveButton, rejectButton); card.appendChild(actions);
         }
-
         list.appendChild(card);
     });
 }
@@ -1142,7 +1311,7 @@ async function loadDashboardData() {
         await loadAnalytics();
 
         if (isSuperAdmin) {
-            await loadPayments();
+            await Promise.all([loadPayments(), loadAdminStores()]);
         } else {
             await Promise.all([
                 loadKnowledgeBase(),

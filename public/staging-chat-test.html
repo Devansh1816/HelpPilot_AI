@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HelpPilot AI — Staging Chat Test</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#07090e;color:#f8fafc}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;padding:28px 16px;background:radial-gradient(circle at top,#172554 0,#07090e 55%);display:grid;place-items:center}
+    main{width:min(680px,100%);background:#0f172a;border:1px solid #26334a;border-radius:22px;padding:28px;box-shadow:0 20px 60px #0008}
+    h1{margin:0 0 8px;font-size:clamp(25px,5vw,36px)}p{color:#aab7ca;line-height:1.6}
+    .notice{border:1px solid #854d0e;background:#42200655;color:#fde68a;padding:12px 14px;border-radius:12px;font-size:14px}
+    .questions{display:grid;gap:10px;margin-top:22px}
+    button{padding:14px 16px;border:1px solid #394866;border-radius:12px;background:#18243b;color:#fff;text-align:left;font-size:15px;cursor:pointer}
+    button:hover{border-color:#818cf8;background:#202e4b}
+    .hint{font-size:13px;margin-top:20px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>🤖 HelpPilot AI — Staging Chat Test</h1>
+    <p>This is a private test page for checking your staging chatbot. Use only the sample questions below; do not enter real customer or personal information.</p>
+    <div class="notice"><strong>Testing only.</strong> This page is not a live customer store. If chat reports a configuration error, the staging server settings still need attention.</div>
+    <section class="questions" aria-label="Sample chatbot questions">
+      <button type="button" data-query="What is your return policy?">Test 1 — What is your return policy?</button>
+      <button type="button" data-query="How can I track my order?">Test 2 — How can I track my order?</button>
+      <button type="button" data-query="Namaste, meri return policy kya hai?">Test 3 — Hindi: meri return policy kya hai?</button>
+      <button type="button" data-query="I need a human agent, please.">Test 4 — Request human support</button>
+    </section>
+    <p class="hint">The HelpPilot chat bubble is the purple 💬 button at the bottom-right. Tap a sample question, then open the chat and send it manually.</p>
+  </main>
+  <script src="https://helppilotai-git-notification-system-implem-e73326-help-pilot-ai.vercel.app/widget.js" data-app-id="ae50bd05-d2b2-4f78-9ce1-0fd62d70163b"></script>
+</body>
+</html>

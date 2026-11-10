@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendAdminNotification, sendStoreNotification } from '../lib/email.js';
 
 const PAYMENT_COLUMNS = 'id, app_id, utr_number, status, created_at, approved_at';
 
@@ -15,9 +16,9 @@ export default async function handler(req, res) {
     const url = process.env.SUPABASE_URL;
     const anonKey = process.env.SUPABASE_ANON_KEY;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const ownerUserId = process.env.OWNER_USER_ID;
+    const ownerUserId = process.env.OWNER_USER_ID || '';
 
-    if (!url || !anonKey || !serviceKey || !ownerUserId) {
+    if (!url || !anonKey || !serviceKey) {
       return res.status(500).json({
         success: false,
         error: 'Server configuration error.'
@@ -48,17 +49,18 @@ export default async function handler(req, res) {
     }
 
     const user = authData.user;
-    const isOwner = user.id === ownerUserId;
+    const isOwner = Boolean(ownerUserId && user.id === ownerUserId);
     const supabase = createClient(url, serviceKey);
 
     // Verify store ownership for normal users.
     let app = null;
+    let storeName = null;
 
     if (!isOwner) {
       const { data: workspace, error: workspaceError } =
         await supabase
           .from('workspaces')
-          .select('app_uuid')
+          .select('app_uuid, store_name')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -88,13 +90,14 @@ export default async function handler(req, res) {
       }
 
       app = data;
+      storeName = workspace.store_name || null;
     }
 
     // GET: Store owners see their payments; admin sees all.
     if (req.method === 'GET') {
       let query = supabase
         .from('payments')
-        .select(PAYMENT_COLUMNS)
+        .select(isOwner ? PAYMENT_COLUMNS : 'id, status, created_at, approved_at')
         .order('created_at', { ascending: false });
 
       if (!isOwner) {
@@ -187,6 +190,20 @@ export default async function handler(req, res) {
 
       if (error) throw error;
 
+      // Email is best-effort: a notification failure must not make a
+      // successfully saved payment submission appear to have failed.
+      try {
+        await sendAdminNotification({
+          subject: 'New HelpPilot AI payment reference',
+          eventType: 'payment_submitted',
+          storeName: storeName || 'Store name unavailable',
+          appId: app.public_app_id,
+          details: 'A store submitted a payment reference. Review it in the admin dashboard; verify payment independently before approval.'
+        });
+      } catch (notificationError) {
+        console.error('Payment submission notification failed:', notificationError?.name || 'unknown_error');
+      }
+
       return res.status(201).json({
         success: true,
         data
@@ -235,6 +252,37 @@ export default async function handler(req, res) {
         success: false,
         error: 'Pending payment not found.'
       });
+    }
+
+    // Notification processing is isolated after the payment state change.
+    // It must never make a completed approval/rejection appear to have failed.
+    try {
+      const { data: paymentOwner } = await supabase
+        .from('payments')
+        .select('app_uuid')
+        .eq('id', data.id)
+        .maybeSingle();
+
+      const { data: workspace } = paymentOwner?.app_uuid
+        ? await supabase
+            .from('workspaces')
+            .select('user_id, store_name')
+            .eq('app_uuid', paymentOwner.app_uuid)
+            .maybeSingle()
+        : { data: null };
+
+      if (workspace?.user_id) {
+        const { data: ownerData } = await supabase.auth.admin.getUserById(workspace.user_id);
+        await sendStoreNotification(ownerData?.user?.email, {
+          subject: `HelpPilot AI payment ${status}`,
+          eventType: `payment_${status}`,
+          storeName: workspace.store_name,
+          appId: data.app_id,
+          details: `Your payment reference was ${status}. Please check your dashboard for details.`
+        });
+      }
+    } catch (notificationError) {
+      console.error('Payment decision notification failed:', notificationError?.name || 'unknown_error');
     }
 
     return res.status(200).json({
