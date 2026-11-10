@@ -239,6 +239,13 @@
         </div>
     </div>
 
+    <div id="store-subscription-panel" class="panel-card hidden">
+        <div class="panel-title">⭐ Subscription</div>
+        <div class="panel-subtitle">Manage your plan and view payment verification status.</div>
+        <div id="store-subscription-summary" class="kb-item">Loading subscription details...</div>
+        <div class="panel-title" style="font-size:15px;margin-top:18px;">Payment history</div>
+        <div id="store-payment-history" style="margin-top:12px;">No payment submissions yet.</div>
+    </div>
     <div id="admin-payments-panel" class="panel-card hidden">
         <div class="panel-title" style="color: #4ade80;">💳 Pending Pro Upgrades (Admin Control)</div>
         <div class="panel-subtitle">Submitted UTR numbers from users for Pro subscription verification.</div>
@@ -308,7 +315,7 @@
             <input type="text" id="payment-utr" placeholder="Enter 12-digit UTR Number">
         </div>
 
-        <button class="btn-success" style="margin-bottom: 10px;" onclick="submitPaymentUTR()">Submit UTR for Instant Upgrade</button>
+        <button class="btn-success" style="margin-bottom: 10px;" onclick="submitPaymentUTR()">Submit Payment for Verification</button>
         <button class="btn-secondary" onclick="closePaymentModal()">Cancel</button>
     </div>
 </div>
@@ -600,6 +607,7 @@ async function setupDashboardUser(user) {
             setText('plan-status-text', 'Administrator account');
 
             el('admin-payments-panel')?.classList.remove('hidden');
+            el('store-subscription-panel')?.classList.add('hidden');
             el('upgrade-btn')?.classList.add('hidden');
 
             el('kb-question')?.closest('.panel-card')?.classList.add('hidden');
@@ -680,6 +688,7 @@ async function setupDashboardUser(user) {
             );
 
             el('admin-payments-panel')?.classList.add('hidden');
+            el('store-subscription-panel')?.classList.remove('hidden');
 
             const upgradeBtnEl = el('upgrade-btn');
             if (upgradeBtnEl) {
@@ -1100,104 +1109,58 @@ async function loadKnowledgeBase() {
 // Load payments.
 async function loadPayments() {
     const result = await apiRequest('/api/payments');
-
-    const list = el('payment-requests-list');
-    if (!list) return;
-
-    list.replaceChildren();
-
     const payments = result.data || [];
 
-    if (payments.length === 0) {
-        list.appendChild(
-            createTextElement(
-                'p',
-                '',
-                'No payment submissions yet.'
-            )
-        );
+    if (!isSuperAdmin) {
+        const summary = el('store-subscription-summary');
+        const history = el('store-payment-history');
+        if (!summary || !history) return;
+        summary.textContent = el('plan-status-text')?.textContent || 'Free Trial';
+        history.replaceChildren();
+        if (payments.length === 0) {
+            history.appendChild(createTextElement('p', '', 'No payment submissions yet.'));
+            return;
+        }
+        payments.forEach(payment => {
+            const card = createTextElement('div', 'payment-item', '');
+            card.appendChild(createTextElement('strong', '', String(payment.status || 'pending').toUpperCase()));
+            card.appendChild(createTextElement('p', '', 'Submitted: ' + new Date(payment.created_at).toLocaleString('en-IN')));
+            if (payment.approved_at) card.appendChild(createTextElement('p', '', 'Pro activated: ' + new Date(payment.approved_at).toLocaleDateString('en-IN')));
+            history.appendChild(card);
+        });
         return;
     }
 
+    const list = el('payment-requests-list');
+    if (!list) return;
+    list.replaceChildren();
+    if (payments.length === 0) {
+        list.appendChild(createTextElement('p', '', 'No payment submissions yet.'));
+        return;
+    }
     payments.forEach(payment => {
         const card = createTextElement('div', 'payment-item', '');
-
         card.style.display = 'flex';
         card.style.justifyContent = 'space-between';
         card.style.alignItems = 'center';
         card.style.flexWrap = 'wrap';
         card.style.gap = '12px';
-
         const details = createTextElement('div', '', '');
-
-        details.appendChild(
-            createTextElement(
-                'div',
-                '',
-                `App ID: ${payment.app_id}`
-            )
-        );
-
-        details.appendChild(
-            createTextElement(
-                'div',
-                '',
-                `UTR: ${payment.utr_number}`
-            )
-        );
-
-        details.appendChild(
-            createTextElement(
-                'div',
-                '',
-                `Date: ${new Date(payment.created_at).toLocaleString()}`
-            )
-        );
-
-        details.appendChild(
-            createTextElement(
-                'div',
-                '',
-                `Status: ${payment.status}`
-            )
-        );
-
+        details.appendChild(createTextElement('div', '', 'Store App ID: ' + payment.app_id));
+        details.appendChild(createTextElement('div', '', 'UTR: ' + payment.utr_number));
+        details.appendChild(createTextElement('div', '', 'Date: ' + new Date(payment.created_at).toLocaleString()));
+        details.appendChild(createTextElement('div', '', 'Status: ' + payment.status));
         card.appendChild(details);
-
-        if (isSuperAdmin && payment.status === 'pending') {
+        if (payment.status === 'pending') {
             const actions = createTextElement('div', '', '');
-
-            const approveButton = createTextElement(
-                'button',
-                'btn-success',
-                'Approve'
-            );
-
-            approveButton.style.width = 'auto';
-            approveButton.style.padding = '8px 12px';
-
-            approveButton.addEventListener('click', () => {
-                approveProUser(payment.id, 'approved');
-            });
-
-            const rejectButton = createTextElement(
-                'button',
-                'btn-secondary',
-                'Reject'
-            );
-
-            rejectButton.style.width = 'auto';
-            rejectButton.style.padding = '8px 12px';
-            rejectButton.style.marginLeft = '8px';
-
-            rejectButton.addEventListener('click', () => {
-                approveProUser(payment.id, 'rejected');
-            });
-
-            actions.append(approveButton, rejectButton);
-            card.appendChild(actions);
+            const approveButton = createTextElement('button', 'btn-success', 'Approve');
+            approveButton.style.width = 'auto'; approveButton.style.padding = '8px 12px';
+            approveButton.addEventListener('click', () => approveProUser(payment.id, 'approved'));
+            const rejectButton = createTextElement('button', 'btn-secondary', 'Reject');
+            rejectButton.style.width = 'auto'; rejectButton.style.padding = '8px 12px'; rejectButton.style.marginLeft = '8px';
+            rejectButton.addEventListener('click', () => approveProUser(payment.id, 'rejected'));
+            actions.append(approveButton, rejectButton); card.appendChild(actions);
         }
-
         list.appendChild(card);
     });
 }
