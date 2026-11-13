@@ -244,9 +244,20 @@ export default async function handler(req, res) {
     // Answer exact FAQ matches without depending on Gemini.
     const normalizedQuestion = normalizeText(cleanMsg);
 
-    const exactFaq = (kbEntries || []).find(
-      item => normalizeText(item.title) === normalizedQuestion
-    );
+    const FAQ_ALIASES = {
+      'refund policy': ['what is your return policy?', 'return policy'],
+      'return policy': ['what is your return policy?', 'refund policy'],
+      'returns': ['what is your return policy?', 'return policy', 'refund policy'],
+      'track order': ['how can i track my order?', 'order tracking'],
+      'order tracking': ['how can i track my order?', 'track order']
+    };
+
+    const exactFaq = (kbEntries || []).find(item => {
+      const normalizedTitle = normalizeText(item.title);
+      const aliases = FAQ_ALIASES[normalizedQuestion] || [];
+      return normalizedTitle === normalizedQuestion ||
+        aliases.some(alias => normalizeText(alias) === normalizedTitle);
+    });
 
     if (exactFaq) {
       await saveLog(supabase, app, cleanVisitorId, cleanMsg, 'active');
@@ -259,7 +270,7 @@ export default async function handler(req, res) {
 
     // Handle simple greetings locally so they do not wait for Gemini.
     const GREETING_PATTERN =
-      /^(hi|hello|hey|hiya|howdy|good morning|good afternoon|good evening|namaste|namaskar)( there)?$/i;
+      /^(h+i+|he+y+|hello+|hiya+|howdy|good morning|good afternoon|good evening|namaste|namaskar)( there)?$/i;
 
     if (GREETING_PATTERN.test(normalizedQuestion)) {
       await saveLog(supabase, app, cleanVisitorId, cleanMsg, 'active');
