@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Local environment files - never commit secrets
+.env
+.env.*
+!.env.example
+
+# Vercel project link
+.vercel
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db

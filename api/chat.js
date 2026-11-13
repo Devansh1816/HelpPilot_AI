@@ -6,13 +6,31 @@ import { sendStoreNotification } from '../lib/email.js';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// Models are tried in order; if one is overloaded (503), times out, or is
-// unavailable, the next one is used.
-const GEMINI_MODELS = [
-  process.env.GEMINI_MODEL || 'gemini-3.8-flash',
-  'gemini-3.6-flash',
-  'gemini-2.5-flash'
-].filter((m, i, arr) => m && arr.indexOf(m) === i);
+// Models are tried in order; if one is unavailable, overloaded (503),
+// rate limited (429) or times out, the next one is used. The whole list can be
+// overridden with GEMINI_MODELS="model-a,model-b" - useful after verifying
+// valid IDs via GET https://generativelanguage.googleapis.com/v1beta/models.
+const GEMINI_MODELS = (
+  process.env.GEMINI_MODELS
+    ? process.env.GEMINI_MODELS.split(',')
+    : [
+      process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+      'gemini-3.6-flash',
+      'gemini-2.5-flash'
+    ]
+)
+  .map(m => m.trim())
+  .filter((m, i, arr) => m && arr.indexOf(m) === i);
+
+// Hard cap on the knowledge payload sent to Gemini. The prompt must stay well
+// inside the model context window: oversized prompts return 400 INVALID_ARGUMENT
+// and every message then falls back to a canned reply.
+const KB_CONTEXT_MAX_CHARS = Number(process.env.KB_CONTEXT_MAX_CHARS || 8000);
+
+// Gemini statuses worth a single retry. 429 is handled separately: retrying it
+// only burns quota, so the request moves straight to the next model.
+const RETRYABLE_STATUS = [500, 503, 504];
+const MAX_ATTEMPTS_PER_MODEL = 2;
 
 // Limits
 const IP_MAX_PER_MINUTE = 12;      // per visitor IP (per instance)
@@ -61,6 +79,53 @@ const normalizeText = text =>
   text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Turns a Gemini HTTP failure into a short, loggable reason so recurring
+// failures can be told apart (invalid key vs unknown model vs quota vs upstream).
+function classifyGeminiError(status, data) {
+  if (status === 400) return 'invalid_request';
+  if (status === 401 || status === 403) return 'invalid_key';
+  if (status === 404) return 'model_not_found';
+  if (status === 429) return 'rate_limited';
+  if (status >= 500) return 'upstream_error';
+  return String(data?.error?.status || 'unknown').toLowerCase();
+}
+
+// Ranks knowledge-base entries by keyword overlap with the question and fits
+// them into a character budget, so the most relevant context reaches Gemini
+// without overflowing the model context window.
+function buildKnowledgeContext(entries, question) {
+  if (!entries || entries.length === 0) return '';
+
+  const questionWords = new Set(
+    normalizeText(question).split(' ').filter(Boolean)
+  );
+
+  const ranked = entries
+    .map((item, index) => ({
+      item,
+      index,
+      overlap: normalizeText(item.title)
+        .split(' ')
+        .filter(word => word && questionWords.has(word)).length
+    }))
+    .sort((a, b) => (b.overlap - a.overlap) || (a.index - b.index));
+
+  const blocks = [];
+  let budget = KB_CONTEXT_MAX_CHARS;
+
+  for (const { item } of ranked) {
+    const block = `Topic: ${item.title}\nInformation: ${item.content}`;
+    if (block.length > budget) {
+      if (budget > 200) blocks.push(`${block.slice(0, budget)}…`);
+      break;
+    }
+    blocks.push(block);
+    budget -= block.length + 2;
+  }
+
+  return blocks.join('\n\n');
+}
 
 // Whole-word matching so "management" or "humane" do not escalate.
 const ESCALATION_PATTERN =
@@ -229,9 +294,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const knowledgeContext = (kbEntries || [])
-      .map(item => `Topic: ${item.title}\nInformation: ${item.content}`)
-      .join('\n\n');
+    const knowledgeContext = buildKnowledgeContext(kbEntries, cleanMsg);
 
     // Answer exact FAQ matches without depending on Gemini.
     const normalizedQuestion = normalizeText(cleanMsg);
@@ -250,8 +313,14 @@ export default async function handler(req, res) {
     }
 
     let reply = '';
+    let aiAnswered = false;
+    let modelUsed = '';
+    let degradedReason = '';
 
-    if (GEMINI_API_KEY) {
+    if (!GEMINI_API_KEY) {
+      console.error('Gemini is not configured: GEMINI_API_KEY is missing.');
+      degradedReason = 'not_configured';
+    } else {
       try {
         const prompt = `
 You are the customer support assistant for "${app.app_name}".
@@ -275,9 +344,15 @@ ${cleanMsg}
         const deadline = Date.now() + 22000; // total Gemini time budget
 
         for (const model of GEMINI_MODELS) {
-          for (let attempt = 0; attempt < 2 && !reply; attempt++) {
+          // A prompt-level safety block repeats on every model, so stop early.
+          if (reply || degradedReason === 'content_blocked') break;
+
+          for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_MODEL && !reply; attempt++) {
             const remaining = deadline - Date.now();
-            if (remaining < 2000) break;
+            if (remaining < 2000) {
+              degradedReason = 'timeout';
+              break;
+            }
 
             try {
               const aiResponse = await fetch(
@@ -296,35 +371,85 @@ ${cleanMsg}
                 }
               );
 
-              const aiData = await aiResponse.json();
+              const aiData = await aiResponse.json().catch(() => null);
 
               if (aiResponse.ok) {
-                reply = aiData.candidates?.[0]?.content?.parts
-                  ?.map(part => part.text || '')
+                const candidate = aiData?.candidates?.[0];
+                const finishReason = candidate?.finishReason;
+                const text = (candidate?.content?.parts || [])
+                  .map(part => part.text || '')
                   .join('')
-                  .trim() || '';
+                  .trim();
+
+                if (text) {
+                  reply = text;
+                  aiAnswered = true;
+                  modelUsed = model;
+                  if (finishReason === 'MAX_TOKENS') {
+                    console.warn('Gemini reply truncated (MAX_TOKENS):', model);
+                  }
+                  break;
+                }
+
+                // 200 with no usable text: safety block or empty candidates.
+                // Repeating the same prompt on another model will not help.
+                console.error('Gemini returned no text:', model, JSON.stringify({
+                  blockReason: aiData?.promptFeedback?.blockReason,
+                  finishReason
+                }));
+                degradedReason = 'content_blocked';
                 break;
               }
 
-              console.error(`Gemini API error (${model}):`, aiResponse.status, JSON.stringify(aiData).slice(0, 300));
+              const errorCode = classifyGeminiError(aiResponse.status, aiData);
+              console.error('Gemini API error:', JSON.stringify({
+                model,
+                status: aiResponse.status,
+                code: errorCode,
+                attempt
+              }));
 
-              // Temporary errors: retry same model once; anything else: next model
-              if (![429, 500, 503, 504].includes(aiResponse.status)) break;
-              await sleep(600);
+              // Quota/rate limit: retrying burns quota, so move to the next model.
+              if (aiResponse.status === 429) {
+                degradedReason = 'rate_limited';
+                break;
+              }
+
+              // Transient upstream errors: retry once, then move on.
+              if (RETRYABLE_STATUS.includes(aiResponse.status) && attempt === 0) {
+                await sleep(600);
+                continue;
+              }
+
+              degradedReason = errorCode;
+              break;
             } catch (modelError) {
-              console.error(`Gemini request error (${model}):`, modelError?.name || modelError);
+              const name = modelError?.name || 'unknown_error';
+              console.error('Gemini request error:', JSON.stringify({ model, name }));
+              degradedReason =
+                name === 'TimeoutError' || name === 'AbortError'
+                  ? 'timeout'
+                  : 'network_error';
               break; // timeout/network: move to next model
             }
           }
+        }
 
-          if (reply) break;
+        if (aiAnswered) {
+          console.log('Gemini answered:', JSON.stringify({
+            model: modelUsed,
+            length: reply.length
+          }));
         }
       } catch (aiError) {
-        console.error('Gemini request error:', aiError);
+        console.error('Gemini request error:', aiError?.name || 'unknown_error');
+        degradedReason = 'unexpected_error';
       }
     }
 
     if (!reply) {
+      console.error('Chat reply degraded:', degradedReason || 'no_reply');
+
       reply = knowledgeContext
         ? 'I am unable to answer that right now. Please contact the store support team for assistance.'
         : 'Hello! I do not have store information available yet. Please contact the store support team for help.';
@@ -332,7 +457,11 @@ ${cleanMsg}
 
     await saveLog(supabase, app, cleanVisitorId, cleanMsg, 'active');
 
-    return res.status(200).json({ reply, status: 'active' });
+    return res.status(200).json({
+      reply,
+      status: 'active',
+      degraded: !aiAnswered
+    });
 
   } catch (error) {
     console.error('Chat API error:', error);
