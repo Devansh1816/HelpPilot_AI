@@ -249,6 +249,19 @@ export default async function handler(req, res) {
       });
     }
 
+    // Handle simple greetings locally so they do not wait for Gemini.
+    const GREETING_PATTERN =
+      /^(hi|hello|hey|hiya|howdy|good morning|good afternoon|good evening|namaste|namaskar)( there)?$/i;
+
+    if (GREETING_PATTERN.test(normalizedQuestion)) {
+      await saveLog(supabase, app, cleanVisitorId, cleanMsg, 'active');
+
+      return res.status(200).json({
+        reply: `Hello! Welcome to ${app.app_name}. How can I help you today?`,
+        status: 'active'
+      });
+    }
+
     let reply = '';
 
     if (GEMINI_API_KEY) {
