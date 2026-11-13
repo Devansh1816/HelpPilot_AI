@@ -147,7 +147,15 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!isAllowedDomain(origin, app.domain)) {
+    // Allow this exact Vercel deployment hostname only in Preview deployments.
+    // Production continues to enforce the store's configured domain.
+    const previewHost = process.env.VERCEL_ENV === 'preview'
+      ? normalizeHost(process.env.VERCEL_URL || '')
+      : '';
+    const isThisPreviewDeployment =
+      Boolean(previewHost) && normalizeHost(origin) === previewHost;
+
+    if (!isAllowedDomain(origin, app.domain) && !isThisPreviewDeployment) {
       return res.status(403).json({
         error: 'This website is not authorized to use this chatbot.'
       });
